@@ -1100,7 +1100,7 @@ save();
   <div class="bar2"><button id="micBtn" class="off" title="Microphone">🎤</button><button id="camBtn" class="off" title="Camera">📷</button></div>
 </div>
 <script type="module">
-import {joinRoom,selfId} from 'https://cdn.jsdelivr.net/npm/trystero/+esm';
+import {joinRoom,selfId} from 'https://cdn.jsdelivr.net/npm/trystero@0.21.5/+esm';
 const $c=s=>document.querySelector(s);
 let room,sendChat,sendName,stream,name='',names={},started=false;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1134,7 +1134,8 @@ async function media(kind){
 }
 $c('#callBtn').onclick=()=>{
   if(!name){name=(prompt('Choose a display name for the call:',localStorage.getItem('pw_nick')||'')||'').trim().slice(0,24)||'Guest-'+selfId.slice(0,4);localStorage.setItem('pw_nick',name)}
-  $c('#youAre').textContent='You: '+name;$c('#call').classList.add('open');start()};
+  $c('#youAre').textContent='You: '+name;$c('#call').classList.add('open');
+  try{start()}catch(e){started=false;$c('#peerCount').textContent='error';sys('Could not connect: '+e.message)}};
 $c('#leaveBtn').onclick=()=>$c('#call').classList.remove('open');
 $c('#micBtn').onclick=()=>media('mic');$c('#camBtn').onclick=()=>media('cam');
 $c('#chatForm').onsubmit=e=>{e.preventDefault();const i=$c('#chatIn'),t=i.value.trim();if(!t)return;sendChat(t);msg(name,t,true);i.value=''};
