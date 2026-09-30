@@ -94,6 +94,7 @@
   @media(max-width:900px){.two{grid-template-columns:1fr}}
 
 #callBtn{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+#callBtn.live{background:#16a34a;border-color:#16a34a}
 #call{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;flex-direction:column}
 #call.open{display:flex}
 #call .top{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
@@ -102,18 +103,31 @@
 #videos{flex:1;display:grid;gap:8px;padding:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(160px,1fr);overflow:auto}
 .vtile{position:relative;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .vtile video{width:100%;height:100%;object-fit:cover}
+.vtile.scr{grid-column:span 2;border-color:var(--accent)}.vtile.scr video{object-fit:contain}
 .vtile .nm{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:6px;font-size:12px}
 .vtile .av{position:absolute;font-size:44px;opacity:.5}
-#chatBox{width:320px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
+#sharePanel{width:440px;border-left:1px solid var(--line);background:var(--panel);display:none;flex-direction:column}
+#sharePanel.on{display:flex}
+#shTabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
+#shTabs button.act{background:var(--accent);border-color:var(--accent)}
+#shBody{flex:1;overflow:auto;padding:8px;font-size:12px}
+#shBody table th,#shBody table td{padding:5px 6px}
+#chatBox{width:300px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
 #msgs{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
 .msg{background:var(--panel2);border-radius:10px;padding:6px 10px;max-width:90%;word-break:break-word}
 .msg.me{align-self:flex-end;background:var(--accent)}
 .msg small{display:block;opacity:.7;font-size:11px}.msg.sys{align-self:center;background:none;color:var(--muted);font-size:12px}
 #chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}#chatForm input{flex:1}
-#call .bar2{display:flex;justify-content:center;gap:10px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
-#call .bar2 button{font-size:18px;padding:8px 16px;border-radius:999px}
+#call .bar2{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
+#call .bar2 button{font-size:16px;padding:8px 14px;border-radius:999px}
 #call .bar2 button.off{background:var(--red);border-color:var(--red)}
-@media(max-width:800px){#call .body{flex-direction:column}#chatBox{width:100%;height:40%;border-left:0;border-top:1px solid var(--line)}}
+#call .bar2 button.on{background:#16a34a;border-color:#16a34a}
+/* mini dock: stays connected while you use the platform */
+#call.mini{inset:auto 16px 16px auto;width:380px;height:290px;border:1px solid var(--accent);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+#call.mini .top{padding:6px 10px}#call.mini #chatBox,#call.mini #sharePanel,#call.mini .top .hide-mini,#call.mini #meSel,#call.mini #shareBtn,#call.mini .bar2 label{display:none!important}
+#call.mini #videos{grid-template-columns:repeat(2,1fr);grid-auto-rows:110px;padding:6px;gap:4px}
+#call.mini .vtile.scr{grid-column:span 2}#call.mini .bar2{padding:6px}#call.mini .bar2 button{padding:4px 10px}
+@media(max-width:800px){#call .body{flex-direction:column}#chatBox,#sharePanel{width:100%;height:40%;border-left:0;border-top:1px solid var(--line)}#call.mini{width:calc(100% - 32px)}}
 </style>
 </head>
 <body>
@@ -1093,52 +1107,97 @@ save();
 
 <div id="call">
   <div class="top"><b>🎧 Public Test Channel</b><span class="badge" id="peerCount">connecting…</span><div class="spacer"></div>
-    <span class="muted" id="youAre"></span><button id="leaveBtn">✕ Close</button></div>
+    <span class="muted hide-mini" id="youAre"></span><button id="minBtn" title="Go back to the platform, stay connected">⤓ Back to platform</button><button id="leaveBtn" title="Disconnect">📞 Leave</button></div>
   <div class="body"><div id="videos"></div>
+    <div id="sharePanel"><div id="shTabs"></div><div id="shBody"></div></div>
     <div id="chatBox"><div id="msgs"></div>
       <form id="chatForm"><input id="chatIn" placeholder="Type a message…" autocomplete="off"><button class="primary">Send</button></form></div></div>
-  <div class="bar2"><button id="micBtn" class="off" title="Microphone">🎤</button><button id="camBtn" class="off" title="Camera">📷</button></div>
+  <div class="bar2"><button id="micBtn" class="off" title="Microphone">🎤</button><button id="camBtn" class="off" title="Camera">📷</button><button id="scrBtn" title="Share screen">🖥️ Share screen</button>
+    <label class="muted">I am</label><select id="meSel"></select><button id="shareBtn" title="Share only my assigned shots with the channel">📋 Share my shot list</button></div>
 </div>
 <script type="module">
 import {joinRoom,selfId} from 'https://cdn.jsdelivr.net/npm/trystero@0.21.5/+esm';
 const $c=s=>document.querySelector(s);
-let room,sendChat,sendName,stream,name='',names={},started=false;
+let room,sendChat,sendName,sendCtl,sendShots,stream,scrStream,name='',names={},shares={},viewing=null,sharePid=null,lastHash='',unread=0;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SL={not_started:'Not started',in_progress:'In progress',done:'Done'};
+const joined=()=>!!room, isMini=()=>$c('#call').classList.contains('mini');
 function sys(t){$c('#msgs').insertAdjacentHTML('beforeend',`<div class="msg sys">${esc(t)}</div>`)}
-function msg(n,t,me){const m=$c('#msgs');m.insertAdjacentHTML('beforeend',`<div class="msg ${me?'me':''}"><small>${esc(n)}</small>${esc(t)}</div>`);m.scrollTop=m.scrollHeight}
-function count(){const n=Object.keys(names).length+1;$c('#peerCount').textContent=`${n} online`}
-function tile(id,label,s,muted){let t=document.getElementById('t-'+id);
-  if(!t){t=document.createElement('div');t.className='vtile';t.id='t-'+id;t.innerHTML='<span class="av">👤</span><video autoplay playsinline></video><span class="nm"></span>';$c('#videos').appendChild(t)}
+function msg(n,t,me){const m=$c('#msgs');m.insertAdjacentHTML('beforeend',`<div class="msg ${me?'me':''}"><small>${esc(n)}</small>${esc(t)}</div>`);m.scrollTop=m.scrollHeight;if(!me&&isMini()){unread++;btn()}}
+function count(){$c('#peerCount').textContent=(Object.keys(names).length+1)+' online'}
+function btn(){const b=$c('#callBtn');b.classList.toggle('live',joined());b.textContent=!joined()?'🎧 Call':'🎧 In call'+(unread?` (${unread})`:'')}
+function tile(id,label,s,muted,scr){let t=document.getElementById('t-'+id);
+  if(!t){t=document.createElement('div');t.className='vtile'+(scr?' scr':'');t.id='t-'+id;t.title='Double-click for fullscreen';t.ondblclick=()=>t.requestFullscreen?.();
+    t.innerHTML='<span class="av">'+(scr?'🖥️':'👤')+'</span><video autoplay playsinline></video><span class="nm"></span>';$c('#videos').appendChild(t)}
   t.querySelector('.nm').textContent=label;const v=t.querySelector('video');v.muted=!!muted;if(s&&v.srcObject!==s)v.srcObject=s}
+const drop=id=>document.getElementById('t-'+id)?.remove();
+/* ---- shot list snapshot: ONLY the cells assigned to the chosen animator ---- */
+function snap(pid){const P=state.people.find(p=>p.id===pid);if(!P)return null;const rows=[];
+  state.shots.forEach(sh=>sh.elements.forEach(el=>state.stages.forEach(st=>{const c=state.cells[`${sh.id}|${el.id}|${st.id}`];
+    if(c&&c.assignee===pid)rows.push([sh.number,sh.description,el.name,st.name,c.status,c.due||''])})));
+  rows.sort((a,b)=>a[0]>b[0]?1:-1);return {who:P.name,rows}}
+function pushShots(target){if(!sharePid)return;const d=snap(sharePid);const h=JSON.stringify(d);if(!target&&h===lastHash)return;lastHash=h;sendShots(d,target)}
+setInterval(()=>{if(joined())pushShots()},2500);
+function renderShares(){const ids=Object.keys(shares),P=$c('#sharePanel');
+  if(!ids.length){P.classList.remove('on');return}
+  if(!shares[viewing])viewing=ids[0];
+  if(viewing!=='closed')P.classList.add('on');
+  $c('#shTabs').innerHTML='<b>📋 Live shot lists</b> '+ids.map(i=>`<button data-i="${i}" class="${i===viewing?'act':''}">${esc(shares[i].who)}</button>`).join('')+' <button id="shX" title="Close panel">✕</button>';
+  $c('#shTabs').querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{viewing=b.dataset.i;renderShares()});
+  $c('#shX').onclick=()=>{P.classList.remove('on')};
+  const d=shares[viewing],done=d.rows.filter(r=>r[4]==='done').length;
+  $c('#shBody').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(d.who)}: ${done} / ${d.rows.length} tasks done · live, read-only</div><div class="bar"><i style="width:${d.rows.length?done/d.rows.length*100:0}%"></i></div>
+   <table style="margin-top:8px"><thead><tr><th>Shot</th><th>Task</th><th>Status</th><th>Due</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td><b>${esc(r[0])}</b><div class="meta">${esc(r[1])}</div></td><td>${esc(r[2])} · ${esc(r[3])}</td><td><span class="chip s-${r[4]}">${SL[r[4]]||r[4]}</span></td><td>${esc(r[5])}</td></tr>`).join('')}</tbody></table>`}
 function start(){
-  if(started)return;started=true;
   room=joinRoom({appId:'pw-film-workspace-test-v1'},'public-test-channel');
-  const [sc,gc]=room.makeAction('chat');const [sn,gn]=room.makeAction('name');sendChat=sc;sendName=sn;
+  const [sc,gc]=room.makeAction('chat'),[sn,gn]=room.makeAction('name'),[sk,gk]=room.makeAction('ctl'),[ss,gs]=room.makeAction('shots');
+  sendChat=sc;sendName=sn;sendCtl=sk;sendShots=ss;
   gc((t,id)=>msg(names[id]||'Guest',t,false));
   gn((n,id)=>{const first=!names[id];names[id]=n;tile(id,n);count();if(first)sys(n+' joined')});
-  room.onPeerJoin(id=>{sendName(name,id);if(stream)room.addStream(stream,id);names[id]=names[id]||'Guest';tile(id,names[id]);count()});
-  room.onPeerLeave(id=>{sys((names[id]||'Guest')+' left');delete names[id];document.getElementById('t-'+id)?.remove();count()});
-  room.onPeerStream((s,id)=>tile(id,names[id]||'Guest',s));
-  tile('me',name+' (you)',null,true);count();sys('Joined the public test channel. Say hi 👋');
-}
+  gk((c,id)=>{if(c.t==='scr'&&!c.on)drop('scr-'+id);if(c.t==='shotsOff'){delete shares[id];sys((names[id]||'Guest')+' stopped sharing their shot list');renderShares()}});
+  gs((d,id)=>{const isNew=!shares[id];shares[id]=d;if(isNew){sys(d.who+' is sharing their shot list — click a tab to watch');if(viewing==='closed')viewing=id}renderShares()});
+  room.onPeerJoin(id=>{sendName(name,id);if(stream)room.addStream(stream,id,{t:'cam'});if(scrStream)room.addStream(scrStream,id,{t:'scr'});pushShots(id);names[id]=names[id]||'Guest';tile(id,names[id]);count()});
+  room.onPeerLeave(id=>{sys((names[id]||'Guest')+' left');delete names[id];delete shares[id];drop(id);drop('scr-'+id);count();renderShares()});
+  room.onPeerStream((s,id,meta)=>{if(meta&&meta.t==='scr')tile('scr-'+id,(names[id]||'Guest')+' — screen',s,false,true);else tile(id,names[id]||'Guest',s)});
+  tile('me',name+' (you)',null,true);count();btn();sys('Joined the public test channel. Say hi 👋')}
+function leave(){try{room?.leave()}catch(e){}room=null;[stream,scrStream].forEach(s=>s?.getTracks().forEach(t=>t.stop()));
+  stream=scrStream=null;names={};shares={};sharePid=null;$c('#videos').innerHTML='';$c('#msgs').innerHTML='';
+  ['#micBtn','#camBtn'].forEach(i=>$c(i).classList.add('off'));$c('#scrBtn').classList.remove('on');$c('#shareBtn').classList.remove('on');$c('#shareBtn').textContent='📋 Share my shot list';
+  $c('#sharePanel').classList.remove('on');$c('#call').classList.remove('open','mini');$c('#peerCount').textContent='connecting…';unread=0;btn()}
 async function media(kind){
   if(!stream){
     try{stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true})}
     catch(e){try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e2){sys('Camera/mic blocked or unavailable: '+e2.message);return}}
     stream.getTracks().forEach(t=>t.enabled=false);
-    tile('me',name+' (you)',stream,true);room.addStream(stream);
+    tile('me',name+' (you)',stream,true);room.addStream(stream,undefined,{t:'cam'});
   }
   const tr=(kind==='mic'?stream.getAudioTracks():stream.getVideoTracks())[0];
   if(!tr){sys('No '+kind+' available');return}
-  tr.enabled=!tr.enabled;$c(kind==='mic'?'#micBtn':'#camBtn').classList.toggle('off',!tr.enabled);
-}
+  tr.enabled=!tr.enabled;$c(kind==='mic'?'#micBtn':'#camBtn').classList.toggle('off',!tr.enabled)}
+function stopScreen(){if(!scrStream)return;room.removeStream(scrStream);scrStream.getTracks().forEach(t=>t.stop());scrStream=null;drop('scr-me');sendCtl({t:'scr',on:false});$c('#scrBtn').classList.remove('on');$c('#scrBtn').textContent='🖥️ Share screen'}
+async function screen(){
+  if(scrStream)return stopScreen();
+  if(!navigator.mediaDevices?.getDisplayMedia){sys('Screen sharing is not supported on this device/browser.');return}
+  try{scrStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true})}catch(e){return}
+  tile('scr-me','Your screen',scrStream,true,true);room.addStream(scrStream,undefined,{t:'scr'});
+  scrStream.getVideoTracks()[0].onended=stopScreen;$c('#scrBtn').classList.add('on');$c('#scrBtn').textContent='⏹ Stop sharing';sys('You are sharing your screen')}
+function shareList(){
+  if(sharePid){sharePid=null;sendCtl({t:'shotsOff'});lastHash='';$c('#shareBtn').classList.remove('on');$c('#shareBtn').textContent='📋 Share my shot list';sys('Stopped sharing your shot list');return}
+  sharePid=$c('#meSel').value;localStorage.setItem('pw_me',sharePid);pushShots();
+  $c('#shareBtn').classList.add('on');$c('#shareBtn').textContent='⏹ Stop sharing list';sys('Sharing only the shots assigned to '+snap(sharePid).who)}
+function setMini(m){$c('#call').classList.toggle('mini',m);$c('#minBtn').textContent=m?'⤢ Expand':'⤓ Back to platform';if(!m){unread=0;btn()}}
 $c('#callBtn').onclick=()=>{
+  if(joined()){setMini(!isMini());$c('#call').classList.add('open');return}
   if(!name){name=(prompt('Choose a display name for the call:',localStorage.getItem('pw_nick')||'')||'').trim().slice(0,24)||'Guest-'+selfId.slice(0,4);localStorage.setItem('pw_nick',name)}
-  $c('#youAre').textContent='You: '+name;$c('#call').classList.add('open');
-  try{start()}catch(e){started=false;$c('#peerCount').textContent='error';sys('Could not connect: '+e.message)}};
-$c('#leaveBtn').onclick=()=>$c('#call').classList.remove('open');
-$c('#micBtn').onclick=()=>media('mic');$c('#camBtn').onclick=()=>media('cam');
-$c('#chatForm').onsubmit=e=>{e.preventDefault();const i=$c('#chatIn'),t=i.value.trim();if(!t)return;sendChat(t);msg(name,t,true);i.value=''};
+  $c('#youAre').textContent='You: '+name;
+  $c('#meSel').innerHTML=state.people.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const saved=localStorage.getItem('pw_me');if(saved)$c('#meSel').value=saved;
+  setMini(false);$c('#call').classList.add('open');
+  try{start()}catch(e){room=null;$c('#peerCount').textContent='error';sys('Could not connect: '+e.message)}};
+$c('#minBtn').onclick=()=>setMini(!isMini());
+$c('#leaveBtn').onclick=leave;
+$c('#micBtn').onclick=()=>media('mic');$c('#camBtn').onclick=()=>media('cam');$c('#scrBtn').onclick=screen;$c('#shareBtn').onclick=shareList;
+$c('#chatForm').onsubmit=e=>{e.preventDefault();const i=$c('#chatIn'),t=i.value.trim();if(!t||!room)return;sendChat(t);msg(name,t,true);i.value=''};
 </script>
 </body>
 </html>
