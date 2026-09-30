@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Production Workspace — MVP Prototype</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --text:#e6e9ef; --muted:#9aa3b2; --accent:#6366f1; --accent2:#8b5cf6;
+    --green:#22c55e; --amber:#f59e0b; --gray:#6b7280; --red:#ef4444;
+    --radius:10px; --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+  }
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);padding:6px 10px;border-radius:8px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:white}
+  button.ghost{background:transparent}
+  input,select,textarea{
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--text)
+  }
+  header{
+    display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--line);
+    background:var(--panel);position:sticky;top:0;z-index:20
+  }
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .spacer{flex:1}
+  header .deadline{color:var(--muted);font-size:12px}
+  nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav button{background:transparent;border:1px solid transparent;color:var(--muted);padding:6px 10px;border-radius:8px}
+  nav button.active{background:var(--panel2);color:var(--text);border-color:var(--line)}
+  main{padding:16px;max-width:100%;}
+  .grid{display:grid;gap:12px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  .card .value{font-size:24px;font-weight:600;margin-top:6px}
+  .card .sub{color:var(--muted);font-size:12px;margin-top:4px}
+  .bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden;margin-top:8px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  .section-title{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+  table{border-collapse:separate;border-spacing:0;width:100%}
+  .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  thead th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  tbody tr:hover{background:rgba(255,255,255,.02)}
+  .sticky-col{position:sticky;left:0;background:var(--panel);z-index:1}
+  thead .sticky-col{z-index:3;background:var(--panel2)}
+  .cell{
+    min-width:130px;cursor:pointer;border:1px dashed transparent;border-radius:8px;padding:6px 8px;transition:.15s
+  }
+  .cell:hover{border-color:var(--line);background:var(--panel2)}
+  .chip{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
+  .s-not_started{background:rgba(107,114,128,.18);color:#cbd5e1}
+  .s-in_progress{background:rgba(245,158,11,.18);color:#fcd34d}
+  .s-done{background:rgba(34,197,94,.18);color:#86efac}
+  .meta{font-size:11px;color:var(--muted);margin-top:3px}
+  .shotnum{font-weight:600}
+  .desc{max-width:260px}
+  .thumb{width:64px;height:40px;border-radius:6px;background:linear-gradient(135deg,#232734,#2d3342);border:1px solid var(--line)}
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar .spacer{flex:1}
+  .badge{font-size:11px;padding:2px 6px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .popover{
+    position:fixed;z-index:100;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:12px;width:280px
+  }
+  .popover h4{margin:0 0 8px;font-size:13px}
+  .popover label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.4px}
+  .popover .row{display:flex;gap:6px;flex-wrap:wrap}
+  .popover .row button{flex:1;min-width:0}
+  .popover .actions{display:flex;justify-content:space-between;margin-top:12px;gap:8px}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal .dow{color:var(--muted);font-size:11px;text-transform:uppercase;text-align:center;padding:4px}
+  .cal .day{min-height:96px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;font-size:12px}
+  .cal .day .num{color:var(--muted);font-size:11px}
+  .cal .day.today{border-color:var(--accent)}
+  .evt{margin-top:4px;padding:3px 6px;border-radius:6px;font-size:11px;background:var(--panel2);border-left:3px solid var(--accent);cursor:pointer}
+  .gantt{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:12px;overflow:auto}
+  .grow{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center;margin:6px 0}
+  .gtrack{position:relative;height:22px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .gbar{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;opacity:.85}
+  .gfill{position:absolute;top:0;bottom:0;left:0;background:rgba(34,197,94,.45);border-radius:6px}
+  .axis{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-bottom:4px}
+  .muted{color:var(--muted)}
+  .kbd{border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px;background:var(--panel2)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:900px){.two{grid-template-columns:1fr}}
+
+#callBtn{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+#call{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;flex-direction:column}
+#call.open{display:flex}
+#call .top{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+#call .top b{font-size:15px}#call .top .spacer{flex:1}
+#call .body{flex:1;display:flex;min-height:0}
+#videos{flex:1;display:grid;gap:8px;padding:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(160px,1fr);overflow:auto}
+.vtile{position:relative;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.vtile video{width:100%;height:100%;object-fit:cover}
+.vtile .nm{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:6px;font-size:12px}
+.vtile .av{position:absolute;font-size:44px;opacity:.5}
+#chatBox{width:320px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
+#msgs{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
+.msg{background:var(--panel2);border-radius:10px;padding:6px 10px;max-width:90%;word-break:break-word}
+.msg.me{align-self:flex-end;background:var(--accent)}
+.msg small{display:block;opacity:.7;font-size:11px}.msg.sys{align-self:center;background:none;color:var(--muted);font-size:12px}
+#chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}#chatForm input{flex:1}
+#call .bar2{display:flex;justify-content:center;gap:10px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
+#call .bar2 button{font-size:18px;padding:8px 16px;border-radius:999px}
+#call .bar2 button.off{background:var(--red);border-color:var(--red)}
+@media(max-width:800px){#call .body{flex-direction:column}#chatBox{width:100%;height:40%;border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎬 Production Workspace</h1>
+  <nav id="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="shotlist">Shot List</button>
+    <button data-tab="calendar">Calendar</button>
+    <button data-tab="gantt">Gantt</button>
+    <button data-tab="milestones">Milestones</button>
+    <button data-tab="import">Storyboard Import</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+  <div class="spacer"></div>
+  <button id="callBtn" title="Public test call channel">🎧 Call</button>
+  <div class="deadline" id="deadlineLabel"></div>
+</header>
+
+<main id="view"></main>
+<div id="popoverRoot"></div>
+
+<script>
+/* ============================================================
+   PRODUCTION WORKSPACE — MVP PROTOTYPE
+   Data model, logic, and views per the blueprint.
+   ============================================================ */
+
+/* ---------- Utilities ---------- */
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+const uid = () => Math.random().toString(36).slice(2, 9);
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+const iso = d => d ? new Date(d).toISOString().slice(0,10) : '';
+const today = () => { const t = new Date(); t.setHours(0,0,0,0); return t; };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const startOfWeek = d => { const x = new Date(d); const day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; };
+const weeksBetween = (a,b) => Math.max(0, (b-a)/(1000*60*60*24*7));
+const daysBetween = (a,b) => Math.round((b-a)/(1000*60*60*24));
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+/* ---------- Seed data ---------- */
+function seed() {
+  const now = today();
+  const start = addDays(now, -28);      // project started 4 weeks ago
+  const deadline = addDays(now, 56);    // 8 weeks from now
+
+  const people = [
+    {id:'p1', name:'Director', color:'#6366f1'},
+    {id:'p2', name:'Maya',     color:'#ec4899'},
+    {id:'p3', name:'Jonas',    color:'#14b8a6'},
+    {id:'p4', name:'Boshra',   color:'#f59e0b'},
+    {id:'p5', name:'Leo',      color:'#8b5cf6'},
+  ];
+
+  const stages = [
+    {id:'rough', name:'Rough Animation',    weight:3.0},
+    {id:'tie',   name:'Tie Down',           weight:2.0},
+    {id:'clean', name:'CleanUp',            weight:2.0},
+    {id:'color', name:'Coloring',           weight:1.5},
+    {id:'png',   name:'PNG Export',         weight:1.0},
+    {id:'integ', name:'2D/3D Integration',  weight:2.0},
+    {id:'light', name:'Lighting',           weight:2.0},
+    {id:'comp',  name:'Compositing',        weight:2.0},
+  ];
+
+  const shotDefs = [
+    ['SH010', 'Opening — wide valley, crow flies in', 'Establishing. Slow push in.', 'CROW: (caw)', 6],
+    ['SH020', 'Main character wakes up',              'Close on face. Eyes open.',  '',            4],
+    ['SH030', 'MC steps outside',                     'Reveal of the herd.',        'MC: "…"',     5],
+    ['SH040', 'Crow circles above',                   'Herd reacts below.',         '',            3],
+    ['SH050', 'MC approaches the herd',               'Tension builds.',            '',            7],
+    ['SH060', 'Crow lands on fence',                  'Silhouette against sky.',    '',            2],
+    ['SH070', 'MC reaches out',                       'Hand trembling.',            '',            4],
+    ['SH080', 'Herd scatters',                        'Fast pan, dust.',            '',            5],
+    ['SH090', 'MC runs after them',                   'Handheld feel.',             'MC: "Wait!"', 6],
+    ['SH100', 'Crow follows',                         'Aerial shot.',               '',            3],
+    ['SH110', 'MC stops, breathes',                   'Wide, quiet.',               '',            5],
+    ['SH120', 'Final — MC and crow together',         'Sunset. Fade out.',          '',            8],
+  ];
+
+  const shots = shotDefs.map(([number, description, notes, dialogue, duration], i) => ({
+    id: 'sh'+(i+1),
+    number, description, notes, dialogue, duration,
+    order: i,
+    thumbnail: '',
+    elements: [
+      {id:'e'+(i+1)+'a', name:'Main Character'},
+      {id:'e'+(i+1)+'b', name:'Crow / Herd'},
+      {id:'e'+(i+1)+'c', name:'Layout'},
+    ]
+  }));
+
+  const cells = {};
+  const statuses = ['not_started','in_progress','done'];
+  // Seed some progress + completedAt spread over past weeks to give the forecast data.
+  shots.forEach((shot, si) => {
+    shot.elements.forEach(el => {
+      stages.forEach(st => {
+        const key = `${shot.id}|${el.id}|${st.id}`;
+        // earlier shots are further along
+        const progressBias = (shots.length - si) / shots.length;
+        let status = 'not_started';
+        const r = Math.random() * (1 + progressBias);
+        if (r > 1.6) status = 'done';
+        else if (r > 1.1) status = 'in_progress';
+        const doneAt = status === 'done'
+          ? addDays(now, -Math.floor(Math.random()*28)).toISOString()
+          : null;
+        cells[key] = {
+          status,
+          assignee: people[(si + st.id.length) % people.length].id,
+          due: iso(addDays(now, Math.floor(Math.random()*56) - 7)),
+          completedAt: doneAt,
+        };
+      });
+    });
+  });
+
+  return {
+    project: { name: 'The Film', start: iso(start), deadline: iso(deadline) },
+    people, stages, shots, cells,
+    weeklyTargets: {},   // derived, not stored
+    importQueue: [],
+  };
+}
+
+/* ---------- State ---------- */
+const LS_KEY = 'production-workspace-v1';
+let state = load() || seed();
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function load() { try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; } }
+function reset() { if (confirm('Reset all data to seed?')) { state = seed(); save(); render(); } }
+
+/* ---------- Lookups ---------- */
+const shotById = id => state.shots.find(s => s.id === id);
+const personById = id => state.people.find(p => p.id === id);
+const stageById = id => state.stages.find(s => s.id === id);
+const cellKey = (shotId, elemId, stageId) => `${shotId}|${elemId||'_'}|${stageId}`;
+function getCell(shotId, elemId, stageId) {
+  const k = cellKey(shotId, elemId, stageId);
+  if (!state.cells[k]) state.cells[k] = { status:'not_started', assignee:null, due:'', completedAt:null };
+  return state.cells[k];
+}
+
+/* ============================================================
+   CORE LOGIC
+   ============================================================ */
+
+/* Weighted completion per stage and overall.
+   Per stage: sum(duration where stage done) / total duration.
+   Overall: weighted average of stage completions by stage.weight. */
+function stageCompletion(stageId) {
+  let done = 0, total = 0;
+  state.shots.forEach(shot => {
+    total += shot.duration;
+    // count shot's stage complete if all its elements for that stage are done
+    const elems = shot.elements;
+    if (!elems.length) {
+      if (getCell(shot.id, null, stageId).status === 'done') done += shot.duration;
+    } else {
+      const allDone = elems.every(el => getCell(shot.id, el.id, stageId).status === 'done');
+      if (allDone) done += shot.duration;
+    }
+  });
+  return total ? done / total : 0;
+}
+function overallCompletion() {
+  let num = 0, den = 0;
+  state.stages.forEach(st => {
+    num += stageCompletion(st.id) * st.weight;
+    den += st.weight;
+  });
+  return den ? num / den : 0;
+}
+function totalSeconds() { return state.shots.reduce((a,s)=>a+s.duration,0); }
+function remainingSeconds() { return totalSeconds() * (1 - overallCompletion()); }
+
+/* Weekly target per stage: remaining_seconds_stage / weeks_until_deadline */
+function weeksUntilDeadline() {
+  return Math.max(0.1, weeksBetween(today(), new Date(state.project.deadline)));
+}
+function weeklyTargetForStage(stageId) {
+  const remaining = totalSeconds() * (1 - stageCompletion(stageId));
+  return remaining / weeksUntilDeadline();
+}
+
+/* Forecast per stage using completedAt history over last N weeks */
+function weeklySpeed(stageId, weeks=4) {
+  const since = addDays(today(), -7*weeks).getTime();
+  let doneSeconds = 0;
+  state.shots.forEach(shot => {
+    const elems = shot.elements;
+    if (!elems.length) {
+      const c = getCell(shot.id, null, stageId);
+      if (c.status==='done' && c.completedAt && new Date(c.completedAt).getTime() >= since) doneSeconds += shot.duration;
+    } else {
+      const allDone = elems.every(el => {
+        const c = getCell(shot.id, el.id, stageId);
+        return c.status==='done' && c.completedAt && new Date(c.completedAt).getTime() >= since;
+      });
+      if (allDone) doneSeconds += shot.duration;
+    }
+  });
+  return doneSeconds / weeks; // seconds per week
+}
+function forecast() {
+  const results = state.stages.map(st => {
+    const remaining = totalSeconds() * (1 - stageCompletion(st.id));
+    const avg = weeklySpeed(st.id, 4);
+    const best = weeklySpeed(st.id, 1);
+    const worst = Math.max(0.01, avg * 0.6);
+    const weeks = (speed) => speed > 0.01 ? remaining / speed : Infinity;
+    const wkReal = weeks(avg), wkOpt = weeks(best), wkCaut = weeks(worst);
+    const finish = w => isFinite(w) ? addDays(today(), Math.round(w*7)) : null;
+    return {
+      stage: st, remaining,
+      avg, best, worst,
+      realistic: finish(wkReal),
+      optimistic: finish(wkOpt),
+      cautious: finish(wkCaut),
+      enoughData: avg > 0.05
+    };
+  });
+  // bottleneck = stage with latest realistic finish
+  const withDates = results.filter(r => r.realistic);
+  const bottleneck = withDates.sort((a,b)=> b.realistic - a.realistic)[0] || null;
+  const overallRealistic = bottleneck ? bottleneck.realistic : null;
+  const deadline = new Date(state.project.deadline);
+  const diffWeeks = overallRealistic ? weeksBetween(deadline, overallRealistic) : 0;
+  return { results, bottleneck, overallRealistic, diffWeeks };
+}
+
+/* Calendar events: derived from cells with due dates */
+function calendarEvents() {
+  const events = [];
+  state.shots.forEach(shot => {
+    shot.elements.forEach(el => {
+      state.stages.forEach(st => {
+        const c = getCell(shot.id, el.id, st.id);
+        if (c.due) {
+          events.push({
+            date: c.due,
+            shot, element: el, stage: st, cell: c,
+            person: personById(c.assignee)
+          });
+        }
+      });
+    });
+  });
+  return events;
+}
+
+/* Weekly target vs actual (last 8 weeks) */
+function weeklyActuals(weeks=8) {
+  const buckets = [];
+  for (let i=weeks-1; i>=0; i--) {
+    const ws = startOfWeek(addDays(today(), -i*7));
+    const we = addDays(ws, 7);
+    let seconds = 0;
+    state.shots.forEach(shot => {
+      const elems = shot.elements;
+      const stageDoneCount = state.stages.filter(st => {
+        return elems.every(el => {
+          const c = getCell(shot.id, el.id, st.id);
+          return c.status==='done' && c.completedAt && new Date(c.completedAt) >= ws && new Date(c.completedAt) < we;
+        });
+      }).length;
+      seconds += shot.duration * (stageDoneCount / state.stages.length);
+    });
+    buckets.push({ weekStart: ws, seconds });
+  }
+  return buckets;
+}
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+let currentTab = 'dashboard';
+
+function render() {
+  $('#deadlineLabel').textContent =
+    `Deadline: ${fmtDate(state.project.deadline)} • ${Math.round(weeksUntilDeadline())} weeks left`;
+  const view = $('#view');
+  view.innerHTML = '';
+  if (currentTab==='dashboard') renderDashboard(view);
+  else if (currentTab==='shotlist') renderShotList(view);
+  else if (currentTab==='calendar') renderCalendar(view);
+  else if (currentTab==='gantt') renderGantt(view);
+  else if (currentTab==='milestones') renderMilestones(view);
+  else if (currentTab==='import') renderImport(view);
+  else if (currentTab==='settings') renderSettings(view);
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard(root) {
+  const overall = overallCompletion();
+  const total = totalSeconds();
+  const remaining = remainingSeconds();
+  const fc = forecast();
+  const events = calendarEvents();
+  const overdue = events.filter(e => new Date(e.date) < today() && e.cell.status !== 'done').length;
+
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="grid cards">
+      <div class="card">
+        <div class="label">Overall completion</div>
+        <div class="value">${Math.round(overall*100)}%</div>
+        <div class="bar"><i style="width:${overall*100}%"></i></div>
+        <div class="sub">${Math.round(total*(1-overall))}s of ${total}s remaining</div>
+      </div>
+      <div class="card">
+        <div class="label">Deadline</div>
+        <div class="value">${fmtDate(state.project.deadline)}</div>
+        <div class="sub">${Math.round(weeksUntilDeadline())} weeks left</div>
+      </div>
+      <div class="card">
+        <div class="label">Forecast (realistic)</div>
+        <div class="value">${fc.overallRealistic ? fmtDate(fc.overallRealistic) : 'Not enough data yet'}</div>
+        <div class="sub">${fc.overallRealistic
+          ? (fc.diffWeeks >= 0 ? `Ahead by ${fc.diffWeeks.toFixed(1)} weeks` : `Behind by ${Math.abs(fc.diffWeeks).toFixed(1)} weeks`)
+          : 'Need at least 2 weeks of finished work'}</div>
+      </div>
+      <div class="card">
+        <div class="label">Overdue tasks</div>
+        <div class="value" style="color:${overdue? 'var(--red)':'var(--green)'}">${overdue}</div>
+        <div class="sub">${overdue ? 'Behind schedule' : 'All on track'}</div>
+      </div>
+    </div>
+
+    <div class="section-title">Progress per stage</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      ${state.stages.map(st => {
+        const c = stageCompletion(st.id);
+        const wk = weeklyTargetForStage(st.id);
+        const speed = weeklySpeed(st.id, 4);
+        const status = speed >= wk ? 'var(--green)' : (speed > wk*0.6 ? 'var(--amber)' : 'var(--red)');
+        return `
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><b>${st.name}</b> <span class="badge">w=${st.weight}</span></div>
+              <div class="muted">${Math.round(c*100)}%</div>
+            </div>
+            <div class="bar"><i style="width:${c*100}%"></i></div>
+            <div class="sub" style="margin-top:6px">
+              Target <b>${wk.toFixed(1)}s/wk</b> • Actual <b style="color:${status}">${speed.toFixed(1)}s/wk</b>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <div class="section-title">Bottleneck & forecast detail</div>
+    <div class="card">
+      ${fc.bottleneck ? `
+        <p>🚧 <b>Bottleneck:</b> ${fc.bottleneck.stage.name} — realistic finish
+          <b>${fmtDate(fc.bottleneck.realistic)}</b>.
+          Optimistic ${fmtDate(fc.bottleneck.optimistic)} • Cautious ${fmtDate(fc.bottleneck.cautious)}.</p>
+      ` : `<p class="muted">Not enough finished work to compute a forecast yet. Keep marking cells done.</p>`}
+    </div>
+
+    <div class="section-title">Upcoming assignments (next 14 days)</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Due</th><th>Shot</th><th>Element</th><th>Stage</th><th>Owner</th><th>Status</th></tr></thead>
+        <tbody>
+          ${events
+            .filter(e => {
+              const d = new Date(e.date);
+              return d >= today() && d <= addDays(today(), 14) && e.cell.status !== 'done';
+            })
+            .sort((a,b)=> new Date(a.date) - new Date(b.date))
+            .slice(0, 20)
+            .map(e => `
+              <tr>
+                <td>${fmtDate(e.date)}</td>
+                <td class="shotnum">${e.shot.number}</td>
+                <td>${e.element.name}</td>
+                <td>${e.stage.name}</td>
+                <td>${e.person ? `<span style="color:${e.person.color}">●</span> ${e.person.name}` : '—'}</td>
+                <td><span class="chip s-${e.cell.status}">${e.cell.status.replace('_',' ')}</span></td>
+              </tr>`).join('') || `<tr><td colspan="6" class="muted">Nothing scheduled.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+  root.appendChild(el);
+}
+
+/* ---------- Shot list ---------- */
+function renderShotList(root) {
+  const wrap = document.createElement('div');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'toolbar';
+  toolbar.innerHTML = `
+    <button class="primary" id="addShot">+ Shot</button>
+    <button id="addStage">+ Stage</button>
+    <div class="spacer"></div>
+    <span class="badge">${state.shots.length} shots</span>
+    <span class="badge">${totalSeconds()}s total</span>
+    <span class="badge">${Math.round(overallCompletion()*100)}% done</span>
+  `;
+  wrap.appendChild(toolbar);
+
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'tablewrap';
+  tableWrap.innerHTML = `
+    <table id="shotTable">
+      <thead>
+        <tr>
+          <th class="sticky-col">Shot</th>
+          <th>Thumb</th>
+          <th>Description / Notes</th>
+          <th>Dialogue</th>
+          <th>Dur</th>
+          ${state.stages.map(st => `<th>${st.name}<div class="meta" style="font-weight:400;text-transform:none">${Math.round(stageCompletion(st.id)*100)}%</div></th>`).join('')}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  `;
+  wrap.appendChild(tableWrap);
+
+  const tbody = $('tbody', tableWrap);
+  state.shots.forEach(shot => {
+    // shot row
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="sticky-col"><span class="shotnum">${shot.number}</span></td>
+      <td><div class="thumb"></div></td>
+      <td class="desc">
+        <input value="${escapeAttr(shot.description)}" data-field="description" data-shot="${shot.id}" style="width:100%">
+        <textarea data-field="notes" data-shot="${shot.id}" placeholder="notes" style="width:100%;margin-top:4px;min-height:36px">${escapeHtml(shot.notes||'')}</textarea>
+      </td>
+      <td><input value="${escapeAttr(shot.dialogue||'')}" data-field="dialogue" data-shot="${shot.id}" style="width:100%"></td>
+      <td><input type="number" value="${shot.duration}" data-field="duration" data-shot="${shot.id}" style="width:60px"> s</td>
+      ${state.stages.map(st => cellTd(shot, null, st)).join('')}
+      <td><button class="ghost" data-del-shot="${shot.id}" title="Delete shot">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+
+    // element rows
+    shot.elements.forEach(el => {
+      const etr = document.createElement('tr');
+      etr.style.background = 'rgba(255,255,255,.015)';
+      etr.innerHTML = `
+        <td class="sticky-col muted" style="padding-left:22px">↳ ${el.name}</td>
+        <td></td>
+        <td class="muted" style="font-size:12px">element of ${shot.number}</td>
+        <td></td>
+        <td></td>
+        ${state.stages.map(st => cellTd(shot, el, st)).join('')}
+        <td><button class="ghost" data-del-elem="${shot.id}|${el.id}" title="Delete element">✕</button></td>
+      `;
+      tbody.appendChild(etr);
+    });
+
+    // add element row
+    const atr = document.createElement('tr');
+    atr.innerHTML = `
+      <td class="sticky-col"><button class="ghost" data-add-elem="${shot.id}" style="font-size:11px">+ element</button></td>
+      <td colspan="${4 + state.stages.length + 1}"></td>
+    `;
+    tbody.appendChild(atr);
+  });
+
+  root.appendChild(wrap);
+
+  // events
+  $('#addShot', wrap).onclick = () => {
+    const n = state.shots.length + 1;
+    state.shots.push({
+      id: uid(), number: 'SH' + String(n*10).padStart(3,'0'),
+      description:'New shot', notes:'', dialogue:'', duration:4, order:n-1, thumbnail:'',
+      elements: [{id:uid(), name:'Main Character'}]
+    });
+    save(); render();
+  };
+  $('#addStage', wrap).onclick = () => {
+    const name = prompt('Stage name:'); if (!name) return;
+    state.stages.push({ id: uid(), name, weight: 1 });
+    save(); render();
+  };
+  $$('[data-del-shot]', wrap).forEach(b => b.onclick = () => {
+    if (!confirm('Delete shot?')) return;
+    state.shots = state.shots.filter(s => s.id !== b.dataset.delShot);
+    save(); render();
+  });
+  $$('[data-del-elem]', wrap).forEach(b => b.onclick = () => {
+    const [sid, eid] = b.dataset.delElem.split('|');
+    const s = shotById(sid); s.elements = s.elements.filter(e => e.id !== eid);
+    save(); render();
+  });
+  $$('[data-add-elem]', wrap).forEach(b => b.onclick = () => {
+    const name = prompt('Element name (e.g. Crow/Herd):'); if (!name) return;
+    shotById(b.dataset.addElem).elements.push({ id: uid(), name });
+    save(); render();
+  });
+  $$('input,textarea', wrap).forEach(inp => {
+    inp.onchange = () => {
+      const s = shotById(inp.dataset.shot);
+      if (!s) return;
+      const f = inp.dataset.field;
+      s[f] = f === 'duration' ? Number(inp.value) : inp.value;
+      save(); render();
+    };
+  });
+  $$('.cell', wrap).forEach(c => c.onclick = e => {
+    e.stopPropagation();
+    openCellEditor(c.dataset.key, e.clientX, e.clientY);
+  });
+}
+
+function cellTd(shot, el, stage) {
+  const c = getCell(shot.id, el ? el.id : null, stage.id);
+  const p = personById(c.assignee);
+  const overdue = c.due && new Date(c.due) < today() && c.status !== 'done';
+  return `
+    <td>
+      <div class="cell" data-key="${cellKey(shot.id, el?el.id:null, stage.id)}">
+        <span class="chip s-${c.status}">${c.status.replace('_',' ')}</span>
+        <div class="meta">${p ? `<span style="color:${p.color}">●</span> ${p.name}` : '<span class="muted">unassigned</span>'}</div>
+        <div class="meta" style="${overdue?'color:var(--red)':''}">${c.due ? (overdue?'⚠ ':'')+fmtDate(c.due) : '<span class="muted">no date</span>'}</div>
+      </div>
+    </td>`;
+}
+
+/* ---------- Cell editor popover ---------- */
+function openCellEditor(key, x, y) {
+  closeEditor();
+  const [shotId, elemIdRaw, stageId] = key.split('|');
+  const elemId = elemIdRaw === '_' ? null : elemIdRaw;
+  const c = getCell(shotId, elemId, stageId);
+  const shot = shotById(shotId);
+  const el = elemId ? shot.elements.find(e => e.id === elemId) : null;
+  const stage = stageById(stageId);
+
+  const pop = document.createElement('div');
+  pop.className = 'popover';
+  pop.innerHTML = `
+    <h4>${shot.number}${el ? ' · '+el.name : ''} — ${stage.name}</h4>
+    <label>Status</label>
+    <div class="row" id="statusRow">
+      <button data-s="not_started" class="${c.status==='not_started'?'primary':''}">Not started</button>
+      <button data-s="in_progress" class="${c.status==='in_progress'?'primary':''}">In progress</button>
+      <button data-s="done" class="${c.status==='done'?'primary':''}">Done</button>
+    </div>
+    <label>Assignee</label>
+    <select id="assignee" style="width:100%">
+      <option value="">— unassigned —</option>
+      ${state.people.map(p => `<option value="${p.id}" ${c.assignee===p.id?'selected':''}>${p.name}</option>`).join('')}
+    </select>
+    <label>Due date</label>
+    <input type="date" id="due" value="${c.due||''}" style="width:100%">
+    <div class="actions">
+      <button class="ghost" id="clear">Clear</button>
+      <div>
+        <button class="ghost" id="cancel">Cancel</button>
+        <button class="primary" id="save">Save</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('popoverRoot').appendChild(pop);
+  // position
+  const pw = 280, ph = pop.offsetHeight;
+  pop.style.left = clamp(x, 8, window.innerWidth - pw - 8) + 'px';
+  pop.style.top  = clamp(y, 8, window.innerHeight - ph - 8) + 'px';
+
+  let newStatus = c.status;
+  $$('#statusRow button', pop).forEach(b => b.onclick = () => {
+    newStatus = b.dataset.s;
+    $$('#statusRow button', pop).forEach(x => x.classList.remove('primary'));
+    b.classList.add('primary');
+  });
+  $('#clear', pop).onclick = () => {
+    c.status = 'not_started'; c.assignee = null; c.due = ''; c.completedAt = null;
+    save(); closeEditor(); render();
+  };
+  $('#cancel', pop).onclick = closeEditor;
+  $('#save', pop).onclick = () => {
+    c.status = newStatus;
+    c.assignee = $('#assignee', pop).value || null;
+    c.due = $('#due', pop).value || '';
+    if (newStatus === 'done' && !c.completedAt) c.completedAt = new Date().toISOString();
+    if (newStatus !== 'done') c.completedAt = null;
+    save(); closeEditor(); render();
+  };
+  setTimeout(() => document.addEventListener('click', outsideClose), 0);
+}
+function closeEditor() {
+  document.getElementById('popoverRoot').innerHTML = '';
+  document.removeEventListener('click', outsideClose);
+}
+function outsideClose(e) {
+  if (!e.target.closest('.popover') && !e.target.closest('.cell')) closeEditor();
+}
+
+/* ---------- Calendar ---------- */
+let calMonth = today();
+function renderCalendar(root) {
+  const events = calendarEvents();
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  const first = new Date(y, m, 1);
+  const start = startOfWeek(first);
+  const days = [];
+  for (let i=0; i<42; i++) days.push(addDays(start, i));
+
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="toolbar">
+      <button id="prev">‹</button>
+      <b>${calMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</b>
+      <button id="next">›</button>
+      <div class="spacer"></div>
+      ${state.people.map(p => `<span class="badge"><span style="color:${p.color}">●</span> ${p.name}</span>`).join('')}
+    </div>
+    <div class="cal">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="dow">${d}</div>`).join('')}
+      ${days.map(d => {
+        const ds = iso(d);
+        const dayEvents = events.filter(e => e.date === ds);
+        const isToday = iso(today()) === ds;
+        const inMonth = d.getMonth() === m;
+        return `
+          <div class="day ${isToday?'today':''}" style="${inMonth?'':'opacity:.4'}">
+            <div class="num">${d.getDate()}</div>
+            ${dayEvents.slice(0,4).map(e => `
+              <div class="evt" style="border-left-color:${e.person?e.person.color:'#666'}" title="${e.shot.number} · ${e.element.name} · ${e.stage.name}">
+                ${e.shot.number} ${e.stage.name.slice(0,8)}
+              </div>
+            `).join('')}
+            ${dayEvents.length > 4 ? `<div class="muted" style="font-size:10px;margin-top:2px">+${dayEvents.length-4} more</div>` : ''}
+          </div>`;
+      }).join('')}
+    </div>
+  `;
+  root.appendChild(el);
+  $('#prev', el).onclick = () => { calMonth = new Date(y, m-1, 1); render(); };
+  $('#next', el).onclick = () => { calMonth = new Date(y, m+1, 1); render(); };
+}
+
+/* ---------- Gantt ---------- */
+function renderGantt(root) {
+  // For each shot, compute earliest and latest due date across its cells
+  const rows = state.shots.map(shot => {
+    let min = null, max = null, total = 0, done = 0;
+    shot.elements.forEach(el => {
+      state.stages.forEach(st => {
+        const c = getCell(shot.id, el.id, st.id);
+        if (c.due) {
+          const d = new Date(c.due);
+          if (!min || d < min) min = d;
+          if (!max || d > max) max = d;
+        }
+        total++;
+        if (c.status === 'done') done++;
+      });
+    });
+    return { shot, min, max, progress: total ? done/total : 0 };
+  }).filter(r => r.min && r.max);
+
+  const projStart = new Date(state.project.start);
+  const projEnd = new Date(state.project.deadline);
+  const span = projEnd - projStart;
+  const pct = d => clamp(((d - projStart) / span) * 100, 0, 100);
+
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="gantt">
+      <div class="axis">
+        <span>${fmtDate(projStart)}</span>
+        <span>Deadline ${fmtDate(projEnd)}</span>
+      </div>
+      ${rows.map(r => `
+        <div class="grow">
+          <div>
+            <b>${r.shot.number}</b>
+            <div class="meta">${Math.round(r.progress*100)}% · ${fmtDate(r.min)} → ${fmtDate(r.max)}</div>
+          </div>
+          <div class="gtrack">
+            <div class="gbar" style="left:${pct(r.min)}%;width:${Math.max(2, pct(r.max)-pct(r.min))}%"></div>
+            <div class="gfill" style="left:${pct(r.min)}%;width:${Math.max(2, (pct(r.max)-pct(r.min)) * r.progress)}%"></div>
+          </div>
+        </div>
+      `).join('') || `<div class="muted">No scheduled shots. Add due dates in the shot list.</div>`}
+    </div>
+  `;
+  root.appendChild(el);
+}
+
+/* ---------- Milestones ---------- */
+function renderMilestones(root) {
+  const weeks = weeklyActuals(8);
+  const fc = forecast();
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="section-title">Weekly target vs actual</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Week starting</th><th>Required / week</th><th>Actual seconds</th><th>Shots finished</th><th>Status</th></tr></thead>
+        <tbody>
+          ${weeks.map(w => {
+            const required = remainingSeconds() / Math.max(1, weeksUntilDeadline());
+            const shots = state.shots.filter(s => {
+              return s.elements.every(el =>
+                state.stages.every(st => {
+                  const c = getCell(s.id, el.id, st.id);
+                  return c.status==='done' && c.completedAt &&
+                    new Date(c.completedAt) >= w.weekStart &&
+                    new Date(c.completedAt) < addDays(w.weekStart, 7);
+                })
+              );
+            }).length;
+            const ok = w.seconds >= required * 0.9;
+            return `
+              <tr>
+                <td>${fmtDate(w.weekStart)}</td>
+                <td>${required.toFixed(1)}s</td>
+                <td><b>${w.seconds.toFixed(1)}s</b></td>
+                <td>${shots}</td>
+                <td>${ok ? '<span class="chip s-done">on track</span>' : '<span class="chip s-in_progress">behind</span>'}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Per-stage weekly target vs current speed</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Stage</th><th>Remaining</th><th>Required / week</th><th>Current speed</th><th>Gap</th></tr></thead>
+        <tbody>
+          ${state.stages.map(st => {
+            const remaining = totalSeconds() * (1 - stageCompletion(st.id));
+            const req = remaining / weeksUntilDeadline();
+            const speed = weeklySpeed(st.id, 4);
+            const gap = speed - req;
+            return `
+              <tr>
+                <td>${st.name}</td>
+                <td>${remaining.toFixed(1)}s</td>
+                <td>${req.toFixed(1)}s</td>
+                <td>${speed.toFixed(1)}s</td>
+                <td style="color:${gap>=0?'var(--green)':'var(--red)'}">${gap>=0?'+':''}${gap.toFixed(1)}s</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  root.appendChild(el);
+}
+
+/* ---------- Storyboard import ---------- */
+function renderImport(root) {
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="two">
+      <div class="card">
+        <h3 style="margin-top:0">Upload storyboard page</h3>
+        <p class="muted">Upload a scan of a paper storyboard page. In production, the Python AI worker extracts shots, crops thumbnails, and OCRs fields. Here we simulate the extraction so you can test the review flow.</p>
+        <input type="file" id="file" accept="image/*">
+        <div style="margin-top:10px">
+          <button class="primary" id="simulate">Simulate extraction</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Pipeline</h3>
+        <ol class="muted" style="padding-left:18px;margin:6px 0">
+          <li>Upload scan</li>
+          <li>Preprocess (deskew, contrast)</li>
+          <li>Detect panels, cut numbers, notes, dialogue, seconds</li>
+          <li>Crop thumbnails</li>
+          <li>OCR fields</li>
+          <li>Return JSON</li>
+          <li><b>Review screen (mandatory)</b></li>
+          <li>Save as Shot rows + Cells</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section-title">Review extracted shots</div>
+    <div id="reviewArea"><p class="muted">No extraction yet.</p></div>
+  `;
+  root.appendChild(el);
+
+  $('#simulate', el).onclick = () => {
+    const extracted = [
+      { number:'SH200', description:'Extracted: MC looks up', notes:'from scan', dialogue:'', duration:4 },
+      { number:'SH210', description:'Extracted: Crow lands', notes:'from scan', dialogue:'', duration:3 },
+      { number:'SH220', description:'Extracted: wide shot', notes:'from scan', dialogue:'MC: "…"', duration:6 },
+    ];
+    const area = $('#reviewArea', el);
+    area.innerHTML = `
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Cut #</th><th>Description</th><th>Dialogue</th><th>Seconds</th><th>Include</th></tr></thead>
+          <tbody>
+            ${extracted.map((e,i) => `
+              <tr>
+                <td><input value="${e.number}" data-i="${i}" data-f="number" style="width:90px"></td>
+                <td><input value="${escapeAttr(e.description)}" data-i="${i}" data-f="description" style="width:100%"></td>
+                <td><input value="${escapeAttr(e.dialogue)}" data-i="${i}" data-f="dialogue" style="width:100%"></td>
+                <td><input type="number" value="${e.duration}" data-i="${i}" data-f="duration" style="width:70px"></td>
+                <td><input type="checkbox" checked data-i="${i}" data-f="include"></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px">
+        <button class="primary" id="saveImport">Save selected to shot list</button>
+      </div>
+    `;
+    const rows = extracted.map(e => ({...e, include:true}));
+    $$('input', area).forEach(inp => inp.onchange = () => {
+      const i = Number(inp.dataset.i), f = inp.dataset.f;
+      rows[i][f] = f === 'include' ? inp.checked : (f === 'duration' ? Number(inp.value) : inp.value);
+    });
+    $('#saveImport', area).onclick = () => {
+      rows.filter(r => r.include).forEach(r => {
+        const id = uid();
+        state.shots.push({
+          id, number: r.number, description: r.description, notes: r.notes||'',
+          dialogue: r.dialogue||'', duration: r.duration, order: state.shots.length,
+          thumbnail:'', elements: [{id: uid(), name:'Main Character'}]
+        });
+      });
+      save(); alert('Saved ' + rows.filter(r=>r.include).length + ' shots.'); render();
+    };
+  };
+}
+
+/* ---------- Settings ---------- */
+function renderSettings(root) {
+  const el = document.createElement('div');
+  el.innerHTML = `
+    <div class="two">
+      <div class="card">
+        <h3 style="margin-top:0">Project</h3>
+        <label class="muted">Name</label>
+        <input id="pname" value="${escapeAttr(state.project.name)}" style="width:100%">
+        <label class="muted" style="display:block;margin-top:8px">Start</label>
+        <input id="pstart" type="date" value="${state.project.start}" style="width:100%">
+        <label class="muted" style="display:block;margin-top:8px">Deadline</label>
+        <input id="pdead" type="date" value="${state.project.deadline}" style="width:100%">
+        <div style="margin-top:12px">
+          <button class="primary" id="saveProject">Save</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-top:0">Team (${state.people.length})</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Name</th><th>Color</th><th></th></tr></thead>
+            <tbody>
+              ${state.people.map(p => `
+                <tr>
+                  <td><input value="${escapeAttr(p.name)}" data-pid="${p.id}" data-pf="name" style="width:100%"></td>
+                  <td><input type="color" value="${p.color}" data-pid="${p.id}" data-pf="color"></td>
+                  <td><button class="ghost" data-delperson="${p.id}">✕</button></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <button style="margin-top:8px" id="addPerson">+ Person</button>
+      </div>
+    </div>
+
+    <div class="section-title">Pipeline stages</div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Name</th><th>Effort weight</th><th>Completion</th><th></th></tr></thead>
+        <tbody>
+          ${state.stages.map((st,i) => `
+            <tr>
+              <td><input value="${escapeAttr(st.name)}" data-sid="${st.id}" data-sf="name" style="width:100%"></td>
+              <td><input type="number" step="0.5" value="${st.weight}" data-sid="${st.id}" data-sf="weight" style="width:80px"></td>
+              <td>${Math.round(stageCompletion(st.id)*100)}%</td>
+              <td>
+                <button class="ghost" data-up="${i}">↑</button>
+                <button class="ghost" data-down="${i}">↓</button>
+                <button class="ghost" data-delstage="${st.id}">✕</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <button style="margin-top:8px" id="addStage2">+ Stage</button>
+
+    <div class="section-title">Data</div>
+    <div class="toolbar">
+      <button id="export">Export JSON</button>
+      <button id="importJson">Import JSON</button>
+      <button id="reset" class="ghost">Reset to seed</button>
+    </div>
+  `;
+  root.appendChild(el);
+
+  $('#saveProject', el).onclick = () => {
+    state.project.name = $('#pname', el).value;
+    state.project.start = $('#pstart', el).value;
+    state.project.deadline = $('#pdead', el).value;
+    save(); render();
+  };
+  $$('input[data-pid]', el).forEach(inp => inp.onchange = () => {
+    const p = personById(inp.dataset.pid); p[inp.dataset.pf] = inp.value; save();
+  });
+  $$('[data-delperson]', el).forEach(b => b.onclick = () => {
+    if (!confirm('Delete person?')) return;
+    state.people = state.people.filter(p => p.id !== b.dataset.delperson); save(); render();
+  });
+  $('#addPerson', el).onclick = () => {
+    const name = prompt('Name:'); if (!name) return;
+    state.people.push({ id: uid(), name, color: '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0') });
+    save(); render();
+  };
+  $$('input[data-sid]', el).forEach(inp => inp.onchange = () => {
+    const st = stageById(inp.dataset.sid);
+    st[inp.dataset.sf] = inp.dataset.sf === 'weight' ? Number(inp.value) : inp.value;
+    save(); render();
+  });
+  $$('[data-delstage]', el).forEach(b => b.onclick = () => {
+    if (!confirm('Delete stage? Cells for this stage will be orphaned.')) return;
+    state.stages = state.stages.filter(s => s.id !== b.dataset.delstage); save(); render();
+  });
+  $$('[data-up]', el).forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.up); if (i<=0) return;
+    [state.stages[i-1], state.stages[i]] = [state.stages[i], state.stages[i-1]]; save(); render();
+  });
+  $$('[data-down]', el).forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.down); if (i>=state.stages.length-1) return;
+    [state.stages[i+1], state.stages[i]] = [state.stages[i], state.stages[i+1]]; save(); render();
+  });
+  $('#addStage2', el).onclick = () => {
+    const name = prompt('Stage name:'); if (!name) return;
+    state.stages.push({ id: uid(), name, weight: 1 }); save(); render();
+  };
+  $('#export', el).onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'production-workspace.json'; a.click();
+  };
+  $('#importJson', el).onclick = () => {
+    const inp = document.createElement('input'); inp.type='file'; inp.accept='.json';
+    inp.onchange = () => {
+      const f = inp.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { try { state = JSON.parse(r.result); save(); render(); } catch(e){ alert('Invalid JSON'); } };
+      r.readAsText(f);
+    };
+    inp.click();
+  };
+  $('#reset', el).onclick = reset;
+}
+
+/* ---------- Helpers ---------- */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+
+/* ---------- Tabs ---------- */
+$$('#tabs button').forEach(b => b.onclick = () => {
+  currentTab = b.dataset.tab;
+  $$('#tabs button').forEach(x => x.classList.toggle('active', x === b));
+  closeEditor();
+  render();
+});
+
+/* ---------- Boot ---------- */
+render();
+save();
+</script>
+
+<div id="call">
+  <div class="top"><b>🎧 Public Test Channel</b><span class="badge" id="peerCount">connecting…</span><div class="spacer"></div>
+    <span class="muted" id="youAre"></span><button id="leaveBtn">✕ Close</button></div>
+  <div class="body"><div id="videos"></div>
+    <div id="chatBox"><div id="msgs"></div>
+      <form id="chatForm"><input id="chatIn" placeholder="Type a message…" autocomplete="off"><button class="primary">Send</button></form></div></div>
+  <div class="bar2"><button id="micBtn" class="off" title="Microphone">🎤</button><button id="camBtn" class="off" title="Camera">📷</button></div>
+</div>
+<script type="module">
+import {joinRoom,selfId} from 'https://cdn.jsdelivr.net/npm/trystero/+esm';
+const $c=s=>document.querySelector(s);
+let room,sendChat,sendName,stream,name='',names={},started=false;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function sys(t){$c('#msgs').insertAdjacentHTML('beforeend',`<div class="msg sys">${esc(t)}</div>`)}
+function msg(n,t,me){const m=$c('#msgs');m.insertAdjacentHTML('beforeend',`<div class="msg ${me?'me':''}"><small>${esc(n)}</small>${esc(t)}</div>`);m.scrollTop=m.scrollHeight}
+function count(){const n=Object.keys(names).length+1;$c('#peerCount').textContent=`${n} online`}
+function tile(id,label,s,muted){let t=document.getElementById('t-'+id);
+  if(!t){t=document.createElement('div');t.className='vtile';t.id='t-'+id;t.innerHTML='<span class="av">👤</span><video autoplay playsinline></video><span class="nm"></span>';$c('#videos').appendChild(t)}
+  t.querySelector('.nm').textContent=label;const v=t.querySelector('video');v.muted=!!muted;if(s&&v.srcObject!==s)v.srcObject=s}
+function start(){
+  if(started)return;started=true;
+  room=joinRoom({appId:'pw-film-workspace-test-v1'},'public-test-channel');
+  const [sc,gc]=room.makeAction('chat');const [sn,gn]=room.makeAction('name');sendChat=sc;sendName=sn;
+  gc((t,id)=>msg(names[id]||'Guest',t,false));
+  gn((n,id)=>{const first=!names[id];names[id]=n;tile(id,n);count();if(first)sys(n+' joined')});
+  room.onPeerJoin(id=>{sendName(name,id);if(stream)room.addStream(stream,id);names[id]=names[id]||'Guest';tile(id,names[id]);count()});
+  room.onPeerLeave(id=>{sys((names[id]||'Guest')+' left');delete names[id];document.getElementById('t-'+id)?.remove();count()});
+  room.onPeerStream((s,id)=>tile(id,names[id]||'Guest',s));
+  tile('me',name+' (you)',null,true);count();sys('Joined the public test channel. Say hi 👋');
+}
+async function media(kind){
+  if(!stream){
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true})}
+    catch(e){try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e2){sys('Camera/mic blocked or unavailable: '+e2.message);return}}
+    stream.getTracks().forEach(t=>t.enabled=false);
+    tile('me',name+' (you)',stream,true);room.addStream(stream);
+  }
+  const tr=(kind==='mic'?stream.getAudioTracks():stream.getVideoTracks())[0];
+  if(!tr){sys('No '+kind+' available');return}
+  tr.enabled=!tr.enabled;$c(kind==='mic'?'#micBtn':'#camBtn').classList.toggle('off',!tr.enabled);
+}
+$c('#callBtn').onclick=()=>{
+  if(!name){name=(prompt('Choose a display name for the call:',localStorage.getItem('pw_nick')||'')||'').trim().slice(0,24)||'Guest-'+selfId.slice(0,4);localStorage.setItem('pw_nick',name)}
+  $c('#youAre').textContent='You: '+name;$c('#call').classList.add('open');start()};
+$c('#leaveBtn').onclick=()=>$c('#call').classList.remove('open');
+$c('#micBtn').onclick=()=>media('mic');$c('#camBtn').onclick=()=>media('cam');
+$c('#chatForm').onsubmit=e=>{e.preventDefault();const i=$c('#chatIn'),t=i.value.trim();if(!t)return;sendChat(t);msg(name,t,true);i.value=''};
+</script>
+</body>
+</html>
