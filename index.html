@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Production Workspace — MVP Prototype</title>
+<title>Production Workspace — MVP</title>
+
+<!-- Inline base styles (original design system) -->
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
@@ -52,9 +54,7 @@
   tbody tr:hover{background:rgba(255,255,255,.02)}
   .sticky-col{position:sticky;left:0;background:var(--panel);z-index:1}
   thead .sticky-col{z-index:3;background:var(--panel2)}
-  .cell{
-    min-width:130px;cursor:pointer;border:1px dashed transparent;border-radius:8px;padding:6px 8px;transition:.15s
-  }
+  .cell{min-width:130px;cursor:pointer;border:1px dashed transparent;border-radius:8px;padding:6px 8px;transition:.15s}
   .cell:hover{border-color:var(--line);background:var(--panel2)}
   .chip{display:inline-block;font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line)}
   .s-not_started{background:rgba(107,114,128,.18);color:#cbd5e1}
@@ -63,7 +63,8 @@
   .meta{font-size:11px;color:var(--muted);margin-top:3px}
   .shotnum{font-weight:600}
   .desc{max-width:260px}
-  .thumb{width:64px;height:40px;border-radius:6px;background:linear-gradient(135deg,#232734,#2d3342);border:1px solid var(--line)}
+  .thumb{width:64px;height:40px;border-radius:6px;background:linear-gradient(135deg,#232734,#2d3342);border:1px solid var(--line);overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .thumb img{width:100%;height:100%;object-fit:cover}
   .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
   .toolbar .spacer{flex:1}
   .badge{font-size:11px;padding:2px 6px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
@@ -93,79 +94,46 @@
   .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(max-width:900px){.two{grid-template-columns:1fr}}
 
-#callBtn{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-#callBtn.live{background:#16a34a;border-color:#16a34a}
-#call{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;flex-direction:column}
-#call.open{display:flex}
-#call .top{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
-#call .top b{font-size:15px}#call .top .spacer{flex:1}
-#call .body{flex:1;display:flex;min-height:0}
-#videos{flex:1;display:grid;gap:8px;padding:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));grid-auto-rows:minmax(160px,1fr);overflow:auto}
-.vtile{position:relative;background:#000;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}
-.vtile video{width:100%;height:100%;object-fit:cover}
-.vtile.scr{grid-column:span 2;border-color:var(--accent)}.vtile.scr video{object-fit:contain}
-.vtile .nm{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.6);padding:2px 8px;border-radius:6px;font-size:12px}
-.vtile .av{position:absolute;font-size:44px;opacity:.5}
-#sharePanel{width:440px;border-left:1px solid var(--line);background:var(--panel);display:none;flex-direction:column}
-#sharePanel.on{display:flex}
-#shTabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
-#shTabs button.act{background:var(--accent);border-color:var(--accent)}
-#shBody{flex:1;overflow:auto;padding:8px;font-size:12px}
-#shBody table th,#shBody table td{padding:5px 6px}
-#chatBox{width:300px;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column}
-#msgs{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:6px}
-.msg{background:var(--panel2);border-radius:10px;padding:6px 10px;max-width:90%;word-break:break-word}
-.msg.me{align-self:flex-end;background:var(--accent)}
-.msg small{display:block;opacity:.7;font-size:11px}.msg.sys{align-self:center;background:none;color:var(--muted);font-size:12px}
-#chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}#chatForm input{flex:1}
-#call .bar2{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
-#call .bar2 button{font-size:16px;padding:8px 14px;border-radius:999px}
-#call .bar2 button.off{background:var(--red);border-color:var(--red)}
-#call .bar2 button.on{background:#16a34a;border-color:#16a34a}
-/* mini dock: stays connected while you use the platform */
-#call.mini{inset:auto 16px 16px auto;width:380px;height:290px;border:1px solid var(--accent);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
-#call.mini .top{padding:6px 10px}#call.mini #chatBox,#call.mini #sharePanel,#call.mini .top .hide-mini,#call.mini #meSel,#call.mini #shareBtn,#call.mini .bar2 label{display:none!important}
-#call.mini #videos{grid-template-columns:repeat(2,1fr);grid-auto-rows:110px;padding:6px;gap:4px}
-#call.mini .vtile.scr{grid-column:span 2}#call.mini .bar2{padding:6px}#call.mini .bar2 button{padding:4px 10px}
-@media(max-width:800px){#call .body{flex-direction:column}#chatBox,#sharePanel{width:100%;height:40%;border-left:0;border-top:1px solid var(--line)}#call.mini{width:calc(100% - 32px)}}
+  #splash{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .5s ease,visibility .5s}
+  #splash.done{opacity:0;visibility:hidden}
+  #splash svg{width:96px;height:96px;overflow:visible;animation:sp-float 2.4s ease-in-out infinite}
+  #splash .arm{transform-origin:14px 34px;animation:sp-clap 1.2s cubic-bezier(.5,0,.3,1) infinite}
+  #splash .eye{transform-origin:center;transform-box:fill-box;animation:sp-blink 3.6s infinite}
+  #splash .spark{animation:sp-spark 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center}
+  #splash .ttl{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  #splash .track{width:120px;height:3px;border-radius:3px;background:var(--panel2);overflow:hidden}
+  #splash .track i{display:block;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:sp-slide 1.3s ease-in-out infinite}
+  @keyframes sp-clap{0%,55%{transform:rotate(-24deg)}70%,100%{transform:rotate(0)}}
+  @keyframes sp-spark{0%,66%{opacity:0;transform:scale(.3)}72%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.4)}}
+  @keyframes sp-float{50%{transform:translateY(-5px)}}
+  @keyframes sp-blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  @keyframes sp-slide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+  @media(prefers-reduced-motion:reduce){#splash *{animation:none!important}}
 
-#splash{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .5s ease,visibility .5s}
-#splash.done{opacity:0;visibility:hidden}
-#splash svg{width:96px;height:96px;overflow:visible;animation:sp-float 2.4s ease-in-out infinite}
-#splash .arm{transform-origin:14px 34px;animation:sp-clap 1.2s cubic-bezier(.5,0,.3,1) infinite}
-#splash .eye{transform-origin:center;transform-box:fill-box;animation:sp-blink 3.6s infinite}
-#splash .spark{animation:sp-spark 1.2s ease-out infinite;transform-box:fill-box;transform-origin:center}
-#splash .ttl{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:600}
-#splash .ttl i{font-style:normal;animation:sp-dots 1.4s steps(4) infinite;display:inline-block;width:1.4em;text-align:left;overflow:hidden;vertical-align:bottom}
-#splash .track{width:120px;height:3px;border-radius:3px;background:var(--panel2);overflow:hidden}
-#splash .track i{display:block;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));animation:sp-slide 1.3s ease-in-out infinite}
-@keyframes sp-clap{0%,55%{transform:rotate(-24deg)}70%,100%{transform:rotate(0)}}
-@keyframes sp-spark{0%,66%{opacity:0;transform:scale(.3)}72%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.4)}}
-@keyframes sp-float{50%{transform:translateY(-5px)}}
-@keyframes sp-blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
-@keyframes sp-slide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
-@keyframes sp-dots{0%{width:0}100%{width:1.4em}}
-@media(prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+  /* Backend status pill */
+  #backendStatus{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+  #backendStatus.ok{color:#86efac;border-color:#166534;background:rgba(34,197,94,.12)}
+  #backendStatus.bad{color:#fca5a5;border-color:#7f1d1d;background:rgba(239,68,68,.12)}
 </style>
+
+<!-- Wizard + card styles for the import flow -->
+<link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
 <div id="splash" role="status" aria-label="Loading">
   <svg viewBox="0 0 96 96" fill="none">
     <rect x="12" y="38" width="72" height="46" rx="8" fill="#1e222b" stroke="#6366f1" stroke-width="3"/>
     <g class="arm"><rect x="12" y="20" width="72" height="14" rx="5" fill="#6366f1"/>
       <path d="M26 20l-8 14M42 20l-8 14M58 20l-8 14M74 20l-8 14" stroke="#e6e9ef" stroke-width="4" stroke-linecap="round"/></g>
-    <ellipse class="eye" cx="36" cy="58" rx="3.5" ry="4.5" fill="#e6e9ef"/><ellipse class="eye" cx="60" cy="58" rx="3.5" ry="4.5" fill="#e6e9ef"/>
+    <ellipse class="eye" cx="36" cy="58" rx="3.5" ry="4.5" fill="#e6e9ef"/>
+    <ellipse class="eye" cx="60" cy="58" rx="3.5" ry="4.5" fill="#e6e9ef"/>
     <path d="M42 68q6 5 12 0" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round"/>
     <path class="spark" d="M88 22l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#f59e0b"/>
   </svg>
-  <div class="ttl">Loading<i>...</i></div><div class="track"><i></i></div>
+  <div class="ttl">Loading…</div>
+  <div class="track"><i></i></div>
 </div>
-<script>
-(function(){const l=document.getElementById('splash');let gone=false;
-function hide(){if(gone)return;gone=true;l.classList.add('done');setTimeout(()=>l.remove(),700)}
-window.addEventListener('load',()=>setTimeout(hide,Math.max(0,1900-performance.now())));
-setTimeout(hide,7000)})();
-</script>
 
 <header>
   <h1>🎬 Production Workspace</h1>
@@ -179,21 +147,23 @@ setTimeout(hide,7000)})();
     <button data-tab="settings">Settings</button>
   </nav>
   <div class="spacer"></div>
-  <button id="callBtn" title="Public test call channel">🎧 Call</button>
+  <span id="backendStatus">⏳ connecting…</span>
   <div class="deadline" id="deadlineLabel"></div>
 </header>
 
 <main id="view"></main>
 <div id="popoverRoot"></div>
 
+<!-- ============================================================
+     MAIN APP SCRIPT
+     ============================================================ -->
 <script>
-/* ============================================================
-   PRODUCTION WORKSPACE — MVP PROTOTYPE
-   Data model, logic, and views per the blueprint.
-   ============================================================ */
+/* ---------- Config ---------- */
+const API_BASE = ''; // same origin; Flask serves both HTML and /api/*
+const LS_KEY = 'production-workspace-v1';
 
-/* ---------- Utilities ---------- */
-const $ = (sel, el=document) => el.querySelector(sel);
+/* ---------- Utilities (kept from original) ---------- */
+const $  = (sel, el=document) => el.querySelector(sel);
 const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '—';
@@ -202,15 +172,15 @@ const today = () => { const t = new Date(); t.setHours(0,0,0,0); return t; };
 const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
 const startOfWeek = d => { const x = new Date(d); const day = (x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; };
 const weeksBetween = (a,b) => Math.max(0, (b-a)/(1000*60*60*24*7));
-const daysBetween = (a,b) => Math.round((b-a)/(1000*60*60*24));
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 
-/* ---------- Seed data ---------- */
+/* ---------- Seed (fallback only; server is source of truth) ---------- */
 function seed() {
   const now = today();
-  const start = addDays(now, -28);      // project started 4 weeks ago
-  const deadline = addDays(now, 56);    // 8 weeks from now
-
+  const start = addDays(now, -28);
+  const deadline = addDays(now, 56);
   const people = [
     {id:'p1', name:'Director', color:'#6366f1'},
     {id:'p2', name:'Maya',     color:'#ec4899'},
@@ -218,7 +188,6 @@ function seed() {
     {id:'p4', name:'Boshra',   color:'#f59e0b'},
     {id:'p5', name:'Leo',      color:'#8b5cf6'},
   ];
-
   const stages = [
     {id:'rough', name:'Rough Animation',    weight:3.0},
     {id:'tie',   name:'Tie Down',           weight:2.0},
@@ -229,7 +198,6 @@ function seed() {
     {id:'light', name:'Lighting',           weight:2.0},
     {id:'comp',  name:'Compositing',        weight:2.0},
   ];
-
   const shotDefs = [
     ['SH010', 'Opening — wide valley, crow flies in', 'Establishing. Slow push in.', 'CROW: (caw)', 6],
     ['SH020', 'Main character wakes up',              'Close on face. Eyes open.',  '',            4],
@@ -244,7 +212,6 @@ function seed() {
     ['SH110', 'MC stops, breathes',                   'Wide, quiet.',               '',            5],
     ['SH120', 'Final — MC and crow together',         'Sunset. Fade out.',          '',            8],
   ];
-
   const shots = shotDefs.map(([number, description, notes, dialogue, duration], i) => ({
     id: 'sh'+(i+1),
     number, description, notes, dialogue, duration,
@@ -256,47 +223,81 @@ function seed() {
       {id:'e'+(i+1)+'c', name:'Layout'},
     ]
   }));
-
   const cells = {};
-  const statuses = ['not_started','in_progress','done'];
-  // Seed some progress + completedAt spread over past weeks to give the forecast data.
   shots.forEach((shot, si) => {
     shot.elements.forEach(el => {
       stages.forEach(st => {
         const key = `${shot.id}|${el.id}|${st.id}`;
-        // earlier shots are further along
-        const progressBias = (shots.length - si) / shots.length;
-        let status = 'not_started';
-        const r = Math.random() * (1 + progressBias);
-        if (r > 1.6) status = 'done';
-        else if (r > 1.1) status = 'in_progress';
-        const doneAt = status === 'done'
-          ? addDays(now, -Math.floor(Math.random()*28)).toISOString()
-          : null;
         cells[key] = {
-          status,
+          status: 'not_started',
           assignee: people[(si + st.id.length) % people.length].id,
           due: iso(addDays(now, Math.floor(Math.random()*56) - 7)),
-          completedAt: doneAt,
+          completedAt: null,
         };
       });
     });
   });
-
   return {
     project: { name: 'The Film', start: iso(start), deadline: iso(deadline) },
     people, stages, shots, cells,
-    weeklyTargets: {},   // derived, not stored
+    weeklyTargets: {},
     importQueue: [],
   };
 }
 
-/* ---------- State ---------- */
-const LS_KEY = 'production-workspace-v1';
-let state = load() || seed();
-function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-function load() { try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; } }
-function reset() { if (confirm('Reset all data to seed?')) { state = seed(); save(); render(); } }
+/* ---------- State + persistence ---------- */
+let state = null;
+let backendOK = false;
+
+async function loadState() {
+  try {
+    const r = await fetch(`${API_BASE}/api/workspace`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    if (data && data.empty === undefined && data.shots) {
+      backendOK = true;
+      setBackendStatus(true);
+      return data;
+    }
+    // server has no data yet → push seed
+    backendOK = true;
+    setBackendStatus(true);
+    const s = seed();
+    await saveState(s);
+    return s;
+  } catch (e) {
+    console.warn('[workspace] backend unavailable, using localStorage:', e);
+    backendOK = false;
+    setBackendStatus(false);
+    try {
+      const cached = JSON.parse(localStorage.getItem(LS_KEY));
+      if (cached) return cached;
+    } catch {}
+    return seed();
+  }
+}
+
+async function saveState(s = state) {
+  // Always keep a local cache (works offline / before backend is ready)
+  try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch {}
+  if (!backendOK) return;
+  try {
+    await fetch(`${API_BASE}/api/workspace`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(s)
+    });
+  } catch (e) {
+    console.warn('[workspace] save failed:', e);
+  }
+}
+
+function setBackendStatus(ok) {
+  const el = document.getElementById('backendStatus');
+  if (!el) return;
+  el.textContent = ok ? '● backend connected' : '● offline (local cache)';
+  el.className = ok ? 'ok' : 'bad';
+}
 
 /* ---------- Lookups ---------- */
 const shotById = id => state.shots.find(s => s.id === id);
@@ -309,18 +310,11 @@ function getCell(shotId, elemId, stageId) {
   return state.cells[k];
 }
 
-/* ============================================================
-   CORE LOGIC
-   ============================================================ */
-
-/* Weighted completion per stage and overall.
-   Per stage: sum(duration where stage done) / total duration.
-   Overall: weighted average of stage completions by stage.weight. */
+/* ---------- Core logic ---------- */
 function stageCompletion(stageId) {
   let done = 0, total = 0;
   state.shots.forEach(shot => {
     total += shot.duration;
-    // count shot's stage complete if all its elements for that stage are done
     const elems = shot.elements;
     if (!elems.length) {
       if (getCell(shot.id, null, stageId).status === 'done') done += shot.duration;
@@ -333,16 +327,11 @@ function stageCompletion(stageId) {
 }
 function overallCompletion() {
   let num = 0, den = 0;
-  state.stages.forEach(st => {
-    num += stageCompletion(st.id) * st.weight;
-    den += st.weight;
-  });
+  state.stages.forEach(st => { num += stageCompletion(st.id) * st.weight; den += st.weight; });
   return den ? num / den : 0;
 }
 function totalSeconds() { return state.shots.reduce((a,s)=>a+s.duration,0); }
 function remainingSeconds() { return totalSeconds() * (1 - overallCompletion()); }
-
-/* Weekly target per stage: remaining_seconds_stage / weeks_until_deadline */
 function weeksUntilDeadline() {
   return Math.max(0.1, weeksBetween(today(), new Date(state.project.deadline)));
 }
@@ -350,8 +339,6 @@ function weeklyTargetForStage(stageId) {
   const remaining = totalSeconds() * (1 - stageCompletion(stageId));
   return remaining / weeksUntilDeadline();
 }
-
-/* Forecast per stage using completedAt history over last N weeks */
 function weeklySpeed(stageId, weeks=4) {
   const since = addDays(today(), -7*weeks).getTime();
   let doneSeconds = 0;
@@ -368,7 +355,7 @@ function weeklySpeed(stageId, weeks=4) {
       if (allDone) doneSeconds += shot.duration;
     }
   });
-  return doneSeconds / weeks; // seconds per week
+  return doneSeconds / weeks;
 }
 function forecast() {
   const results = state.stages.map(st => {
@@ -380,15 +367,13 @@ function forecast() {
     const wkReal = weeks(avg), wkOpt = weeks(best), wkCaut = weeks(worst);
     const finish = w => isFinite(w) ? addDays(today(), Math.round(w*7)) : null;
     return {
-      stage: st, remaining,
-      avg, best, worst,
+      stage: st, remaining, avg, best, worst,
       realistic: finish(wkReal),
       optimistic: finish(wkOpt),
       cautious: finish(wkCaut),
       enoughData: avg > 0.05
     };
   });
-  // bottleneck = stage with latest realistic finish
   const withDates = results.filter(r => r.realistic);
   const bottleneck = withDates.sort((a,b)=> b.realistic - a.realistic)[0] || null;
   const overallRealistic = bottleneck ? bottleneck.realistic : null;
@@ -396,8 +381,6 @@ function forecast() {
   const diffWeeks = overallRealistic ? weeksBetween(deadline, overallRealistic) : 0;
   return { results, bottleneck, overallRealistic, diffWeeks };
 }
-
-/* Calendar events: derived from cells with due dates */
 function calendarEvents() {
   const events = [];
   state.shots.forEach(shot => {
@@ -405,19 +388,13 @@ function calendarEvents() {
       state.stages.forEach(st => {
         const c = getCell(shot.id, el.id, st.id);
         if (c.due) {
-          events.push({
-            date: c.due,
-            shot, element: el, stage: st, cell: c,
-            person: personById(c.assignee)
-          });
+          events.push({ date: c.due, shot, element: el, stage: st, cell: c, person: personById(c.assignee) });
         }
       });
     });
   });
   return events;
 }
-
-/* Weekly target vs actual (last 8 weeks) */
 function weeklyActuals(weeks=8) {
   const buckets = [];
   for (let i=weeks-1; i>=0; i--) {
@@ -426,12 +403,10 @@ function weeklyActuals(weeks=8) {
     let seconds = 0;
     state.shots.forEach(shot => {
       const elems = shot.elements;
-      const stageDoneCount = state.stages.filter(st => {
-        return elems.every(el => {
-          const c = getCell(shot.id, el.id, st.id);
-          return c.status==='done' && c.completedAt && new Date(c.completedAt) >= ws && new Date(c.completedAt) < we;
-        });
-      }).length;
+      const stageDoneCount = state.stages.filter(st => elems.every(el => {
+        const c = getCell(shot.id, el.id, st.id);
+        return c.status==='done' && c.completedAt && new Date(c.completedAt) >= ws && new Date(c.completedAt) < we;
+      })).length;
       seconds += shot.duration * (stageDoneCount / state.stages.length);
     });
     buckets.push({ weekStart: ws, seconds });
@@ -439,9 +414,7 @@ function weeklyActuals(weeks=8) {
   return buckets;
 }
 
-/* ============================================================
-   VIEWS
-   ============================================================ */
+/* ---------- Views ---------- */
 let currentTab = 'dashboard';
 
 function render() {
@@ -462,7 +435,6 @@ function render() {
 function renderDashboard(root) {
   const overall = overallCompletion();
   const total = totalSeconds();
-  const remaining = remainingSeconds();
   const fc = forecast();
   const events = calendarEvents();
   const overdue = events.filter(e => new Date(e.date) < today() && e.cell.status !== 'done').length;
@@ -556,7 +528,6 @@ function renderDashboard(root) {
 /* ---------- Shot list ---------- */
 function renderShotList(root) {
   const wrap = document.createElement('div');
-
   const toolbar = document.createElement('div');
   toolbar.className = 'toolbar';
   toolbar.innerHTML = `
@@ -591,11 +562,10 @@ function renderShotList(root) {
 
   const tbody = $('tbody', tableWrap);
   state.shots.forEach(shot => {
-    // shot row
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="sticky-col"><span class="shotnum">${shot.number}</span></td>
-      <td><div class="thumb"></div></td>
+      <td><div class="thumb">${shot.thumbnail ? `<img src="${shot.thumbnail.startsWith('data:')?shot.thumbnail:'data:image/png;base64,'+shot.thumbnail}">` : ''}</div></td>
       <td class="desc">
         <input value="${escapeAttr(shot.description)}" data-field="description" data-shot="${shot.id}" style="width:100%">
         <textarea data-field="notes" data-shot="${shot.id}" placeholder="notes" style="width:100%;margin-top:4px;min-height:36px">${escapeHtml(shot.notes||'')}</textarea>
@@ -607,7 +577,6 @@ function renderShotList(root) {
     `;
     tbody.appendChild(tr);
 
-    // element rows
     shot.elements.forEach(el => {
       const etr = document.createElement('tr');
       etr.style.background = 'rgba(255,255,255,.015)';
@@ -623,7 +592,6 @@ function renderShotList(root) {
       tbody.appendChild(etr);
     });
 
-    // add element row
     const atr = document.createElement('tr');
     atr.innerHTML = `
       <td class="sticky-col"><button class="ghost" data-add-elem="${shot.id}" style="font-size:11px">+ element</button></td>
@@ -634,7 +602,6 @@ function renderShotList(root) {
 
   root.appendChild(wrap);
 
-  // events
   $('#addShot', wrap).onclick = () => {
     const n = state.shots.length + 1;
     state.shots.push({
@@ -642,27 +609,27 @@ function renderShotList(root) {
       description:'New shot', notes:'', dialogue:'', duration:4, order:n-1, thumbnail:'',
       elements: [{id:uid(), name:'Main Character'}]
     });
-    save(); render();
+    saveState(); render();
   };
   $('#addStage', wrap).onclick = () => {
     const name = prompt('Stage name:'); if (!name) return;
     state.stages.push({ id: uid(), name, weight: 1 });
-    save(); render();
+    saveState(); render();
   };
   $$('[data-del-shot]', wrap).forEach(b => b.onclick = () => {
     if (!confirm('Delete shot?')) return;
     state.shots = state.shots.filter(s => s.id !== b.dataset.delShot);
-    save(); render();
+    saveState(); render();
   });
   $$('[data-del-elem]', wrap).forEach(b => b.onclick = () => {
     const [sid, eid] = b.dataset.delElem.split('|');
     const s = shotById(sid); s.elements = s.elements.filter(e => e.id !== eid);
-    save(); render();
+    saveState(); render();
   });
   $$('[data-add-elem]', wrap).forEach(b => b.onclick = () => {
     const name = prompt('Element name (e.g. Crow/Herd):'); if (!name) return;
     shotById(b.dataset.addElem).elements.push({ id: uid(), name });
-    save(); render();
+    saveState(); render();
   });
   $$('input,textarea', wrap).forEach(inp => {
     inp.onchange = () => {
@@ -670,7 +637,7 @@ function renderShotList(root) {
       if (!s) return;
       const f = inp.dataset.field;
       s[f] = f === 'duration' ? Number(inp.value) : inp.value;
-      save(); render();
+      saveState(); render();
     };
   });
   $$('.cell', wrap).forEach(c => c.onclick = e => {
@@ -729,7 +696,6 @@ function openCellEditor(key, x, y) {
     </div>
   `;
   document.getElementById('popoverRoot').appendChild(pop);
-  // position
   const pw = 280, ph = pop.offsetHeight;
   pop.style.left = clamp(x, 8, window.innerWidth - pw - 8) + 'px';
   pop.style.top  = clamp(y, 8, window.innerHeight - ph - 8) + 'px';
@@ -742,7 +708,7 @@ function openCellEditor(key, x, y) {
   });
   $('#clear', pop).onclick = () => {
     c.status = 'not_started'; c.assignee = null; c.due = ''; c.completedAt = null;
-    save(); closeEditor(); render();
+    saveState(); closeEditor(); render();
   };
   $('#cancel', pop).onclick = closeEditor;
   $('#save', pop).onclick = () => {
@@ -751,7 +717,7 @@ function openCellEditor(key, x, y) {
     c.due = $('#due', pop).value || '';
     if (newStatus === 'done' && !c.completedAt) c.completedAt = new Date().toISOString();
     if (newStatus !== 'done') c.completedAt = null;
-    save(); closeEditor(); render();
+    saveState(); closeEditor(); render();
   };
   setTimeout(() => document.addEventListener('click', outsideClose), 0);
 }
@@ -809,7 +775,6 @@ function renderCalendar(root) {
 
 /* ---------- Gantt ---------- */
 function renderGantt(root) {
-  // For each shot, compute earliest and latest due date across its cells
   const rows = state.shots.map(shot => {
     let min = null, max = null, total = 0, done = 0;
     shot.elements.forEach(el => {
@@ -859,7 +824,6 @@ function renderGantt(root) {
 /* ---------- Milestones ---------- */
 function renderMilestones(root) {
   const weeks = weeklyActuals(8);
-  const fc = forecast();
   const el = document.createElement('div');
   el.innerHTML = `
     <div class="section-title">Weekly target vs actual</div>
@@ -869,16 +833,14 @@ function renderMilestones(root) {
         <tbody>
           ${weeks.map(w => {
             const required = remainingSeconds() / Math.max(1, weeksUntilDeadline());
-            const shots = state.shots.filter(s => {
-              return s.elements.every(el =>
-                state.stages.every(st => {
-                  const c = getCell(s.id, el.id, st.id);
-                  return c.status==='done' && c.completedAt &&
-                    new Date(c.completedAt) >= w.weekStart &&
-                    new Date(c.completedAt) < addDays(w.weekStart, 7);
-                })
-              );
-            }).length;
+            const shots = state.shots.filter(s => s.elements.every(el =>
+              state.stages.every(st => {
+                const c = getCell(s.id, el.id, st.id);
+                return c.status==='done' && c.completedAt &&
+                  new Date(c.completedAt) >= w.weekStart &&
+                  new Date(c.completedAt) < addDays(w.weekStart, 7);
+              })
+            )).length;
             const ok = w.seconds >= required * 0.9;
             return `
               <tr>
@@ -919,83 +881,22 @@ function renderMilestones(root) {
   root.appendChild(el);
 }
 
-/* ---------- Storyboard import ---------- */
+/* ---------- Storyboard import (delegated to static/app.js Wizard) ---------- */
 function renderImport(root) {
-  const el = document.createElement('div');
-  el.innerHTML = `
-    <div class="two">
+  if (window.Wizard && typeof window.Wizard.mount === 'function') {
+    root.innerHTML = `<div id="importWizard"></div>`;
+    window.Wizard.mount(document.getElementById('importWizard'));
+  } else {
+    root.innerHTML = `
       <div class="card">
-        <h3 style="margin-top:0">Upload storyboard page</h3>
-        <p class="muted">Upload a scan of a paper storyboard page. In production, the Python AI worker extracts shots, crops thumbnails, and OCRs fields. Here we simulate the extraction so you can test the review flow.</p>
-        <input type="file" id="file" accept="image/*">
-        <div style="margin-top:10px">
-          <button class="primary" id="simulate">Simulate extraction</button>
-        </div>
-      </div>
-      <div class="card">
-        <h3 style="margin-top:0">Pipeline</h3>
-        <ol class="muted" style="padding-left:18px;margin:6px 0">
-          <li>Upload scan</li>
-          <li>Preprocess (deskew, contrast)</li>
-          <li>Detect panels, cut numbers, notes, dialogue, seconds</li>
-          <li>Crop thumbnails</li>
-          <li>OCR fields</li>
-          <li>Return JSON</li>
-          <li><b>Review screen (mandatory)</b></li>
-          <li>Save as Shot rows + Cells</li>
-        </ol>
-      </div>
-    </div>
-
-    <div class="section-title">Review extracted shots</div>
-    <div id="reviewArea"><p class="muted">No extraction yet.</p></div>
-  `;
-  root.appendChild(el);
-
-  $('#simulate', el).onclick = () => {
-    const extracted = [
-      { number:'SH200', description:'Extracted: MC looks up', notes:'from scan', dialogue:'', duration:4 },
-      { number:'SH210', description:'Extracted: Crow lands', notes:'from scan', dialogue:'', duration:3 },
-      { number:'SH220', description:'Extracted: wide shot', notes:'from scan', dialogue:'MC: "…"', duration:6 },
-    ];
-    const area = $('#reviewArea', el);
-    area.innerHTML = `
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>Cut #</th><th>Description</th><th>Dialogue</th><th>Seconds</th><th>Include</th></tr></thead>
-          <tbody>
-            ${extracted.map((e,i) => `
-              <tr>
-                <td><input value="${e.number}" data-i="${i}" data-f="number" style="width:90px"></td>
-                <td><input value="${escapeAttr(e.description)}" data-i="${i}" data-f="description" style="width:100%"></td>
-                <td><input value="${escapeAttr(e.dialogue)}" data-i="${i}" data-f="dialogue" style="width:100%"></td>
-                <td><input type="number" value="${e.duration}" data-i="${i}" data-f="duration" style="width:70px"></td>
-                <td><input type="checkbox" checked data-i="${i}" data-f="include"></td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div style="margin-top:10px">
-        <button class="primary" id="saveImport">Save selected to shot list</button>
-      </div>
-    `;
-    const rows = extracted.map(e => ({...e, include:true}));
-    $$('input', area).forEach(inp => inp.onchange = () => {
-      const i = Number(inp.dataset.i), f = inp.dataset.f;
-      rows[i][f] = f === 'include' ? inp.checked : (f === 'duration' ? Number(inp.value) : inp.value);
-    });
-    $('#saveImport', area).onclick = () => {
-      rows.filter(r => r.include).forEach(r => {
-        const id = uid();
-        state.shots.push({
-          id, number: r.number, description: r.description, notes: r.notes||'',
-          dialogue: r.dialogue||'', duration: r.duration, order: state.shots.length,
-          thumbnail:'', elements: [{id: uid(), name:'Main Character'}]
-        });
-      });
-      save(); alert('Saved ' + rows.filter(r=>r.include).length + ' shots.'); render();
-    };
-  };
+        <h3 style="margin-top:0">⚠️ Import module not loaded</h3>
+        <p class="muted">
+          The front-end file <code>/static/app.js</code> did not load.
+          Check that <code>static/app.js</code> and <code>static/style.css</code>
+          exist and that the Flask server is running.
+        </p>
+      </div>`;
+  }
 }
 
 /* ---------- Settings ---------- */
@@ -1065,44 +966,44 @@ function renderSettings(root) {
   `;
   root.appendChild(el);
 
-  $('#saveProject', el).onclick = () => {
+  $('#saveProject', el).onclick = async () => {
     state.project.name = $('#pname', el).value;
     state.project.start = $('#pstart', el).value;
     state.project.deadline = $('#pdead', el).value;
-    save(); render();
+    await saveState(); render();
   };
   $$('input[data-pid]', el).forEach(inp => inp.onchange = () => {
-    const p = personById(inp.dataset.pid); p[inp.dataset.pf] = inp.value; save();
+    const p = personById(inp.dataset.pid); p[inp.dataset.pf] = inp.value; saveState();
   });
   $$('[data-delperson]', el).forEach(b => b.onclick = () => {
     if (!confirm('Delete person?')) return;
-    state.people = state.people.filter(p => p.id !== b.dataset.delperson); save(); render();
+    state.people = state.people.filter(p => p.id !== b.dataset.delperson); saveState(); render();
   });
   $('#addPerson', el).onclick = () => {
     const name = prompt('Name:'); if (!name) return;
     state.people.push({ id: uid(), name, color: '#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0') });
-    save(); render();
+    saveState(); render();
   };
   $$('input[data-sid]', el).forEach(inp => inp.onchange = () => {
     const st = stageById(inp.dataset.sid);
     st[inp.dataset.sf] = inp.dataset.sf === 'weight' ? Number(inp.value) : inp.value;
-    save(); render();
+    saveState(); render();
   });
   $$('[data-delstage]', el).forEach(b => b.onclick = () => {
-    if (!confirm('Delete stage? Cells for this stage will be orphaned.')) return;
-    state.stages = state.stages.filter(s => s.id !== b.dataset.delstage); save(); render();
+    if (!confirm('Delete stage?')) return;
+    state.stages = state.stages.filter(s => s.id !== b.dataset.delstage); saveState(); render();
   });
   $$('[data-up]', el).forEach(b => b.onclick = () => {
     const i = Number(b.dataset.up); if (i<=0) return;
-    [state.stages[i-1], state.stages[i]] = [state.stages[i], state.stages[i-1]]; save(); render();
+    [state.stages[i-1], state.stages[i]] = [state.stages[i], state.stages[i-1]]; saveState(); render();
   });
   $$('[data-down]', el).forEach(b => b.onclick = () => {
     const i = Number(b.dataset.down); if (i>=state.stages.length-1) return;
-    [state.stages[i+1], state.stages[i]] = [state.stages[i], state.stages[i+1]]; save(); render();
+    [state.stages[i+1], state.stages[i]] = [state.stages[i], state.stages[i+1]]; saveState(); render();
   });
   $('#addStage2', el).onclick = () => {
     const name = prompt('Stage name:'); if (!name) return;
-    state.stages.push({ id: uid(), name, weight: 1 }); save(); render();
+    state.stages.push({ id: uid(), name, weight: 1 }); saveState(); render();
   };
   $('#export', el).onclick = () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
@@ -1115,17 +1016,16 @@ function renderSettings(root) {
     inp.onchange = () => {
       const f = inp.files[0]; if (!f) return;
       const r = new FileReader();
-      r.onload = () => { try { state = JSON.parse(r.result); save(); render(); } catch(e){ alert('Invalid JSON'); } };
+      r.onload = async () => { try { state = JSON.parse(r.result); await saveState(); render(); } catch(e){ alert('Invalid JSON'); } };
       r.readAsText(f);
     };
     inp.click();
   };
-  $('#reset', el).onclick = reset;
+  $('#reset', el).onclick = async () => {
+    if (!confirm('Reset all data to seed?')) return;
+    state = seed(); await saveState(); render();
+  };
 }
-
-/* ---------- Helpers ---------- */
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 
 /* ---------- Tabs ---------- */
 $$('#tabs button').forEach(b => b.onclick = () => {
@@ -1135,104 +1035,27 @@ $$('#tabs button').forEach(b => b.onclick = () => {
   render();
 });
 
+/* ---------- Splash ---------- */
+(function hideSplash(){
+  const l = document.getElementById('splash');
+  if (!l) return;
+  let gone = false;
+  function hide(){ if (gone) return; gone = true; l.classList.add('done'); setTimeout(()=>l.remove(), 700); }
+  window.addEventListener('load', () => setTimeout(hide, Math.max(0, 1400 - performance.now())));
+  setTimeout(hide, 5000);
+})();
+
 /* ---------- Boot ---------- */
-render();
-save();
+(async function boot(){
+  state = await loadState();
+  render();
+})();
 </script>
 
-<div id="call">
-  <div class="top"><b>🎧 Public Test Channel</b><span class="badge" id="peerCount">connecting…</span><div class="spacer"></div>
-    <span class="muted hide-mini" id="youAre"></span><button id="minBtn" title="Go back to the platform, stay connected">⤓ Back to platform</button><button id="leaveBtn" title="Disconnect">📞 Leave</button></div>
-  <div class="body"><div id="videos"></div>
-    <div id="sharePanel"><div id="shTabs"></div><div id="shBody"></div></div>
-    <div id="chatBox"><div id="msgs"></div>
-      <form id="chatForm"><input id="chatIn" placeholder="Type a message…" autocomplete="off"><button class="primary">Send</button></form></div></div>
-  <div class="bar2"><button id="micBtn" class="off" title="Microphone">🎤</button><button id="camBtn" class="off" title="Camera">📷</button><button id="scrBtn" title="Share screen">🖥️ Share screen</button>
-    <label class="muted">I am</label><select id="meSel"></select><button id="shareBtn" title="Share only my assigned shots with the channel">📋 Share my shot list</button></div>
-</div>
-<script type="module">
-import {joinRoom,selfId} from 'https://cdn.jsdelivr.net/npm/trystero@0.21.5/+esm';
-const $c=s=>document.querySelector(s);
-let room,sendChat,sendName,sendCtl,sendShots,stream,scrStream,name='',names={},shares={},viewing=null,sharePid=null,lastHash='',unread=0;
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SL={not_started:'Not started',in_progress:'In progress',done:'Done'};
-const joined=()=>!!room, isMini=()=>$c('#call').classList.contains('mini');
-function sys(t){$c('#msgs').insertAdjacentHTML('beforeend',`<div class="msg sys">${esc(t)}</div>`)}
-function msg(n,t,me){const m=$c('#msgs');m.insertAdjacentHTML('beforeend',`<div class="msg ${me?'me':''}"><small>${esc(n)}</small>${esc(t)}</div>`);m.scrollTop=m.scrollHeight;if(!me&&isMini()){unread++;btn()}}
-function count(){$c('#peerCount').textContent=(Object.keys(names).length+1)+' online'}
-function btn(){const b=$c('#callBtn');b.classList.toggle('live',joined());b.textContent=!joined()?'🎧 Call':'🎧 In call'+(unread?` (${unread})`:'')}
-function tile(id,label,s,muted,scr){let t=document.getElementById('t-'+id);
-  if(!t){t=document.createElement('div');t.className='vtile'+(scr?' scr':'');t.id='t-'+id;t.title='Double-click for fullscreen';t.ondblclick=()=>t.requestFullscreen?.();
-    t.innerHTML='<span class="av">'+(scr?'🖥️':'👤')+'</span><video autoplay playsinline></video><span class="nm"></span>';$c('#videos').appendChild(t)}
-  t.querySelector('.nm').textContent=label;const v=t.querySelector('video');v.muted=!!muted;if(s&&v.srcObject!==s)v.srcObject=s}
-const drop=id=>document.getElementById('t-'+id)?.remove();
-/* ---- shot list snapshot: ONLY the cells assigned to the chosen animator ---- */
-function snap(pid){const P=state.people.find(p=>p.id===pid);if(!P)return null;const rows=[];
-  state.shots.forEach(sh=>sh.elements.forEach(el=>state.stages.forEach(st=>{const c=state.cells[`${sh.id}|${el.id}|${st.id}`];
-    if(c&&c.assignee===pid)rows.push([sh.number,sh.description,el.name,st.name,c.status,c.due||''])})));
-  rows.sort((a,b)=>a[0]>b[0]?1:-1);return {who:P.name,rows}}
-function pushShots(target){if(!sharePid)return;const d=snap(sharePid);const h=JSON.stringify(d);if(!target&&h===lastHash)return;lastHash=h;sendShots(d,target)}
-setInterval(()=>{if(joined())pushShots()},2500);
-function renderShares(){const ids=Object.keys(shares),P=$c('#sharePanel');
-  if(!ids.length){P.classList.remove('on');return}
-  if(!shares[viewing])viewing=ids[0];
-  if(viewing!=='closed')P.classList.add('on');
-  $c('#shTabs').innerHTML='<b>📋 Live shot lists</b> '+ids.map(i=>`<button data-i="${i}" class="${i===viewing?'act':''}">${esc(shares[i].who)}</button>`).join('')+' <button id="shX" title="Close panel">✕</button>';
-  $c('#shTabs').querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{viewing=b.dataset.i;renderShares()});
-  $c('#shX').onclick=()=>{P.classList.remove('on')};
-  const d=shares[viewing],done=d.rows.filter(r=>r[4]==='done').length;
-  $c('#shBody').innerHTML=`<div class="muted" style="margin-bottom:6px">${esc(d.who)}: ${done} / ${d.rows.length} tasks done · live, read-only</div><div class="bar"><i style="width:${d.rows.length?done/d.rows.length*100:0}%"></i></div>
-   <table style="margin-top:8px"><thead><tr><th>Shot</th><th>Task</th><th>Status</th><th>Due</th></tr></thead><tbody>${d.rows.map(r=>`<tr><td><b>${esc(r[0])}</b><div class="meta">${esc(r[1])}</div></td><td>${esc(r[2])} · ${esc(r[3])}</td><td><span class="chip s-${r[4]}">${SL[r[4]]||r[4]}</span></td><td>${esc(r[5])}</td></tr>`).join('')}</tbody></table>`}
-function start(){
-  room=joinRoom({appId:'pw-film-workspace-test-v1'},'public-test-channel');
-  const [sc,gc]=room.makeAction('chat'),[sn,gn]=room.makeAction('name'),[sk,gk]=room.makeAction('ctl'),[ss,gs]=room.makeAction('shots');
-  sendChat=sc;sendName=sn;sendCtl=sk;sendShots=ss;
-  gc((t,id)=>msg(names[id]||'Guest',t,false));
-  gn((n,id)=>{const first=!names[id];names[id]=n;tile(id,n);count();if(first)sys(n+' joined')});
-  gk((c,id)=>{if(c.t==='scr'&&!c.on)drop('scr-'+id);if(c.t==='shotsOff'){delete shares[id];sys((names[id]||'Guest')+' stopped sharing their shot list');renderShares()}});
-  gs((d,id)=>{const isNew=!shares[id];shares[id]=d;if(isNew){sys(d.who+' is sharing their shot list — click a tab to watch');if(viewing==='closed')viewing=id}renderShares()});
-  room.onPeerJoin(id=>{sendName(name,id);if(stream)room.addStream(stream,id,{t:'cam'});if(scrStream)room.addStream(scrStream,id,{t:'scr'});pushShots(id);names[id]=names[id]||'Guest';tile(id,names[id]);count()});
-  room.onPeerLeave(id=>{sys((names[id]||'Guest')+' left');delete names[id];delete shares[id];drop(id);drop('scr-'+id);count();renderShares()});
-  room.onPeerStream((s,id,meta)=>{if(meta&&meta.t==='scr')tile('scr-'+id,(names[id]||'Guest')+' — screen',s,false,true);else tile(id,names[id]||'Guest',s)});
-  tile('me',name+' (you)',null,true);count();btn();sys('Joined the public test channel. Say hi 👋')}
-function leave(){try{room?.leave()}catch(e){}room=null;[stream,scrStream].forEach(s=>s?.getTracks().forEach(t=>t.stop()));
-  stream=scrStream=null;names={};shares={};sharePid=null;$c('#videos').innerHTML='';$c('#msgs').innerHTML='';
-  ['#micBtn','#camBtn'].forEach(i=>$c(i).classList.add('off'));$c('#scrBtn').classList.remove('on');$c('#shareBtn').classList.remove('on');$c('#shareBtn').textContent='📋 Share my shot list';
-  $c('#sharePanel').classList.remove('on');$c('#call').classList.remove('open','mini');$c('#peerCount').textContent='connecting…';unread=0;btn()}
-async function media(kind){
-  if(!stream){
-    try{stream=await navigator.mediaDevices.getUserMedia({audio:true,video:true})}
-    catch(e){try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}catch(e2){sys('Camera/mic blocked or unavailable: '+e2.message);return}}
-    stream.getTracks().forEach(t=>t.enabled=false);
-    tile('me',name+' (you)',stream,true);room.addStream(stream,undefined,{t:'cam'});
-  }
-  const tr=(kind==='mic'?stream.getAudioTracks():stream.getVideoTracks())[0];
-  if(!tr){sys('No '+kind+' available');return}
-  tr.enabled=!tr.enabled;$c(kind==='mic'?'#micBtn':'#camBtn').classList.toggle('off',!tr.enabled)}
-function stopScreen(){if(!scrStream)return;room.removeStream(scrStream);scrStream.getTracks().forEach(t=>t.stop());scrStream=null;drop('scr-me');sendCtl({t:'scr',on:false});$c('#scrBtn').classList.remove('on');$c('#scrBtn').textContent='🖥️ Share screen'}
-async function screen(){
-  if(scrStream)return stopScreen();
-  if(!navigator.mediaDevices?.getDisplayMedia){sys('Screen sharing is not supported on this device/browser.');return}
-  try{scrStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true})}catch(e){return}
-  tile('scr-me','Your screen',scrStream,true,true);room.addStream(scrStream,undefined,{t:'scr'});
-  scrStream.getVideoTracks()[0].onended=stopScreen;$c('#scrBtn').classList.add('on');$c('#scrBtn').textContent='⏹ Stop sharing';sys('You are sharing your screen')}
-function shareList(){
-  if(sharePid){sharePid=null;sendCtl({t:'shotsOff'});lastHash='';$c('#shareBtn').classList.remove('on');$c('#shareBtn').textContent='📋 Share my shot list';sys('Stopped sharing your shot list');return}
-  sharePid=$c('#meSel').value;localStorage.setItem('pw_me',sharePid);pushShots();
-  $c('#shareBtn').classList.add('on');$c('#shareBtn').textContent='⏹ Stop sharing list';sys('Sharing only the shots assigned to '+snap(sharePid).who)}
-function setMini(m){$c('#call').classList.toggle('mini',m);$c('#minBtn').textContent=m?'⤢ Expand':'⤓ Back to platform';if(!m){unread=0;btn()}}
-$c('#callBtn').onclick=()=>{
-  if(joined()){setMini(!isMini());$c('#call').classList.add('open');return}
-  if(!name){name=(prompt('Choose a display name for the call:',localStorage.getItem('pw_nick')||'')||'').trim().slice(0,24)||'Guest-'+selfId.slice(0,4);localStorage.setItem('pw_nick',name)}
-  $c('#youAre').textContent='You: '+name;
-  $c('#meSel').innerHTML=state.people.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
-  const saved=localStorage.getItem('pw_me');if(saved)$c('#meSel').value=saved;
-  setMini(false);$c('#call').classList.add('open');
-  try{start()}catch(e){room=null;$c('#peerCount').textContent='error';sys('Could not connect: '+e.message)}};
-$c('#minBtn').onclick=()=>setMini(!isMini());
-$c('#leaveBtn').onclick=leave;
-$c('#micBtn').onclick=()=>media('mic');$c('#camBtn').onclick=()=>media('cam');$c('#scrBtn').onclick=screen;$c('#shareBtn').onclick=shareList;
-$c('#chatForm').onsubmit=e=>{e.preventDefault();const i=$c('#chatIn'),t=i.value.trim();if(!t||!room)return;sendChat(t);msg(name,t,true);i.value=''};
-</script>
+<!-- ============================================================
+     IMPORT WIZARD (loaded from /static/app.js)
+     ============================================================ -->
+<script src="/static/app.js"></script>
+
 </body>
 </html>
