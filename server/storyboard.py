@@ -17,7 +17,6 @@ import io, re, uuid
 from typing import List, Dict
 import cv2
 import numpy as np
-import pytesseract
 from PIL import Image
 
 # ---------- tuning constants ----------
@@ -104,39 +103,8 @@ SEC_RE   = re.compile(r"\b(\d{1,2})\s*(?:sec|s|''|\")\b", re.I)
 DIAL_RE  = re.compile(r'(?:"[^"]+"|\([^)]+\))')
 
 def _ocr_label(crop: np.ndarray) -> Dict:
-    # upscale for better OCR on small handwriting
-    crop = cv2.resize(crop, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-    _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    # tesseract: treat as single block, permit sparse text
-    config = "--oem 3 --psm 6 -l eng"
-    try:
-        text = pytesseract.image_to_string(th, config=config)
-    except Exception:
-        text = ""
-
-    cut = None
-    m = CUT_RE.search(text)
-    if m:
-        cut = "SH" + m.group(1).zfill(3)
-
-    secs = None
-    ms = SEC_RE.search(text)
-    if ms:
-        secs = int(ms.group(1))
-
-    dialogue = ""
-    md = DIAL_RE.search(text)
-    if md:
-        dialogue = md.group(0).strip('"').strip("()")
-
-    # remaining lines minus matched tokens = description/notes
-    cleaned = CUT_RE.sub("", text)
-    cleaned = SEC_RE.sub("", cleaned)
-    cleaned = DIAL_RE.sub("", cleaned)
-    notes = " ".join(line.strip() for line in cleaned.splitlines() if line.strip())
-
-    return {"cut": cut, "seconds": secs, "dialogue": dialogue, "notes": notes, "raw_text": text}
+    """No Latin OCR guesses: metadata must be interpreted by a vision model or reviewed."""
+    return {"cut": None, "seconds": None, "dialogue": "", "notes": "", "raw_text": ""}
 
 # ---------- public entrypoint ----------
 def analyze_storyboard(image_bytes: bytes, use_agent=None) -> Dict:
@@ -147,7 +115,7 @@ def analyze_storyboard(image_bytes: bytes, use_agent=None) -> Dict:
     if use_agent:
         remote = use_agent(image_bytes)
         if remote and remote.get("panels"):
-            return _normalize(remote, source="agent")
+            return _normalize(remote, source="agent", image_bytes=image_bytes)
 
     img = _to_cv(image_bytes)
     panels_geo = _detect_panels(image_bytes)
@@ -165,17 +133,17 @@ def analyze_storyboard(image_bytes: bytes, use_agent=None) -> Dict:
 
         results.append({
             "index": i,
-            "number": label["cut"] or f"SH{(i+1)*10:03d}",
-            "description": label["notes"][:120] or "New shot",
+            "number": label["cut"] or "",
+            "description": label["notes"][:120],
             "notes": label["notes"],
             "dialogue": label["dialogue"],
-            "duration": label["seconds"] or 4,
+            "duration": label["seconds"],
             "thumbnail_b64": panel_b64,
             "confidence": _confidence(label),
             "bbox": p,
         })
 
-    return _normalize({"panels": results}, source="local")
+    return _normalize({"panels": results}, source="local_cv_review", image_bytes=image_bytes)
 
 def _confidence(label: Dict) -> float:
     score = 0.0
@@ -196,10 +164,60 @@ def _b64_png(crop: np.ndarray) -> str:
     ok, buf = cv2.imencode(".png", crop)
     return base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
 
-def _normalize(payload: Dict, source: str) -> Dict:
+def _normalize(payload: Dict, source: str, image_bytes: bytes = None) -> Dict:
+    """Validate worker output and generate real crops from original pixels."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("panels"), list):
+        raise ValueError("Vision response must contain a panels array")
+    img = _to_cv(image_bytes) if image_bytes else None
+    height, width = img.shape[:2] if img is not None else (0, 0)
+    normalized = []
+    for index, panel in enumerate(payload["panels"][:100]):
+        if not isinstance(panel, dict):
+            continue
+        box = panel.get("bbox") or {}
+        thumb = ""
+        safe_box = None
+        if img is not None and isinstance(box, dict):
+            try:
+                x, y, w, h = (int(box[k]) for k in ("x", "y", "w", "h"))
+                x, y = max(0, x), max(0, y)
+                w, h = min(w, width - x), min(h, height - y)
+                if w > 8 and h > 8:
+                    safe_box = {"x": x, "y": y, "w": w, "h": h}
+                    thumb = _b64_png(img[y:y+h, x:x+w])
+            except (ValueError, TypeError, KeyError):
+                pass
+        if not safe_box and source == "agent":
+            # Do not trust arbitrary remote image data; a missing crop needs review.
+            continue
+        duration = panel.get("duration", panel.get("seconds"))
+        try:
+            duration = float(duration) if duration not in ("", None) else None
+            if duration is not None and not (0 < duration <= 3600):
+                duration = None
+        except (TypeError, ValueError):
+            duration = None
+        confidence = panel.get("confidence", 0)
+        try:
+            confidence = max(0.0, min(1.0, float(confidence)))
+        except (ValueError, TypeError):
+            confidence = 0.0
+        normalized.append({
+            "index": index,
+            "number": str(panel.get("number") or panel.get("cut") or "")[:80],
+            "description": str(panel.get("description") or "")[:2000],
+            "notes": str(panel.get("notes") or "")[:5000],
+            "dialogue": str(panel.get("dialogue") or "")[:5000],
+            "duration": duration,
+            "thumbnail_b64": thumb,
+            "confidence": confidence if source == "agent" else 0.0,
+            "bbox": safe_box,
+            "include": True,
+        })
     return {
         "import_id": str(uuid.uuid4()),
         "source": source,
-        "panel_count": len(payload.get("panels", [])),
-        "panels": payload.get("panels", []),
+        "panel_count": len(normalized),
+        "needs_review": True,
+        "panels": normalized,
     }
