@@ -9,7 +9,8 @@ from storyboard import analyze_storyboard
 from agent_proxy import agent_analyze
 
 load_dotenv()
-UPLOAD_DIR = Path("data/uploads"); UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent.parent
+UPLOAD_DIR = BASE_DIR / "data/uploads"; UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__, static_folder="../static", static_url_path="/static")
 CORS(app)
@@ -83,6 +84,11 @@ def api_review(import_id):
     rec = get_import(import_id)
     if not rec: return jsonify({"error": "not found"}), 404
     body = request.get_json(force=True)
+    if rec["status"] == "committed":
+        return jsonify({"error": "already committed"}), 409
+    panels = body.get("panels") if isinstance(body, dict) else None
+    if not isinstance(panels, list) or len(panels) != len(rec["raw"]["panels"]):
+        return jsonify({"error": "review must include every detected panel"}), 400
     save_import(import_id, rec["filename"], rec["raw"], reviewed=body, status="reviewed")
     return jsonify({"ok": True})
 
@@ -144,7 +150,7 @@ def api_commit(import_id):
 # ---------- static ----------
 @app.get("/")
 def root():
-    return send_file("../index.html")
+    return send_file(BASE_DIR / "index.html")
 
 @app.get("/healthz")
 def health():
