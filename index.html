@@ -77,7 +77,10 @@
   .popover .row{display:flex;gap:6px;flex-wrap:wrap}
   .popover .row button{flex:1;min-width:0}
   .popover .actions{display:flex;justify-content:space-between;margin-top:12px;gap:8px}
-  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .cal .day{min-width:0;overflow:hidden}
+  .cal .evt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:760px){header{flex-wrap:wrap}nav{order:3;width:100%;overflow-x:auto;flex-wrap:nowrap}nav button{white-space:nowrap}main{padding:10px}.cal{gap:2px}.cal .day{padding:3px;min-height:75px}.cal .evt{font-size:9px;padding:2px}.cal .dow{font-size:9px}}
   .cal .dow{color:var(--muted);font-size:11px;text-transform:uppercase;text-align:center;padding:4px}
   .cal .day{min-height:96px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;font-size:12px}
   .cal .day .num{color:var(--muted);font-size:11px}
@@ -138,9 +141,9 @@
 <header>
   <h1>🎬 Production Workspace</h1>
   <nav id="tabs">
-    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="dashboard">Overview</button>
     <button data-tab="shotlist">Shot List</button>
-    <button data-tab="calendar">Calendar</button>
+    <button data-tab="calendar" class="active">Calendar</button>
     <button data-tab="gantt">Gantt</button>
     <button data-tab="milestones">Milestones</button>
     <button data-tab="import">Storyboard Import</button>
@@ -415,7 +418,7 @@ function weeklyActuals(weeks=8) {
 }
 
 /* ---------- Views ---------- */
-let currentTab = 'dashboard';
+let currentTab = 'calendar';
 
 function render() {
   $('#deadlineLabel').textContent =
@@ -740,9 +743,18 @@ function renderCalendar(root) {
   for (let i=0; i<42; i++) days.push(addDays(start, i));
 
   const el = document.createElement('div');
+  const overdue = events.filter(e => e.cell.status !== 'done' && e.date < iso(today())).length;
+  const upcoming = events.filter(e => e.cell.status !== 'done' && e.date >= iso(today()) && e.date <= iso(addDays(today(), 7))).length;
   el.innerHTML = `
+    <div class="grid cards" style="margin-bottom:16px">
+      <div class="card"><div class="label">Scheduled assignments</div><div class="value">${events.length}</div></div>
+      <div class="card"><div class="label">Due in 7 days</div><div class="value">${upcoming}</div></div>
+      <div class="card"><div class="label">Overdue</div><div class="value" style="color:var(--red)">${overdue}</div></div>
+      <div class="card"><div class="label">Film completion</div><div class="value">${Math.round(overallCompletion()*100)}%</div></div>
+    </div>
     <div class="toolbar">
-      <button id="prev">‹</button>
+      <button id="prev" aria-label="Previous month">‹</button>
+      <button id="calToday">Today</button>
       <b>${calMonth.toLocaleDateString('en-GB',{month:'long',year:'numeric'})}</b>
       <button id="next">›</button>
       <div class="spacer"></div>
@@ -769,8 +781,10 @@ function renderCalendar(root) {
     </div>
   `;
   root.appendChild(el);
+  $('.evt', el).forEach(node => node.setAttribute('tabindex', '0'));
   $('#prev', el).onclick = () => { calMonth = new Date(y, m-1, 1); render(); };
   $('#next', el).onclick = () => { calMonth = new Date(y, m+1, 1); render(); };
+  $('#calToday', el).onclick = () => { calMonth = today(); render(); };
 }
 
 /* ---------- Gantt ---------- */
@@ -889,11 +903,10 @@ function renderImport(root) {
   } else {
     root.innerHTML = `
       <div class="card">
-        <h3 style="margin-top:0">⚠️ Import module not loaded</h3>
+        <h3 style="margin-top:0">Storyboard importer unavailable</h3>
         <p class="muted">
           The front-end file <code>/static/app.js</code> did not load.
-          Check that <code>static/app.js</code> and <code>static/style.css</code>
-          exist and that the Flask server is running.
+          The import module did not initialize. Check /static/app.js in the browser network panel, then reload.
         </p>
       </div>`;
   }
