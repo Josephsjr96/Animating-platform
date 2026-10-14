@@ -252,7 +252,9 @@ const Wizard = {
           }))
         };
 
-        await API.review(this.state.result.import_id, payload);
+        if (payload.panels.some(p => p.include && (!String(p.number || '').trim() || !(Number(p.duration) > 0)))) throw new Error('Review cut numbers and durations before importing.');
+        const reviewResult = await API.review(this.state.result.import_id, payload);
+        if (!reviewResult.ok) throw new Error(reviewResult.error || 'Review failed');
 
         const ws = await API.getWorkspace();
         const stageIds = (ws.stages || []).map(s => s.id);
@@ -262,6 +264,7 @@ const Wizard = {
           default_stage_ids: stageIds.slice(0, 3)
         });
 
+        if (!res.ok) throw new Error(res.error || 'Import failed');
         $('#doneMsg').textContent =
           `Added ${res.added.length} shots. Workspace now has ${res.total_shots} shots.`;
         step(4);
