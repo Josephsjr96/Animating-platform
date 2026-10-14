@@ -41,9 +41,7 @@ def api_scan():
     f = request.files["file"]
     if not f.filename:
         return jsonify({"error": "empty filename"}), 400
-    image_bytes = f.read(15 * 1024 * 1024 + 1)
-    if len(image_bytes) > 15 * 1024 * 1024:
-        return jsonify({"error": "image exceeds 15 MB"}), 413
+    image_bytes = f.read()
     if not image_bytes:
         return jsonify({"error": "empty file"}), 400
 
@@ -94,12 +92,7 @@ def api_commit(import_id):
     """
     rec = get_import(import_id)
     if not rec: return jsonify({"error": "not found"}), 404
-    if rec["status"] == "committed":
-        return jsonify({"error": "already committed"}), 409
-    if not rec["reviewed"] or not isinstance(rec["reviewed"].get("panels"), list):
-        return jsonify({"error": "review required before import"}), 400
-    panels = rec["reviewed"]["panels"]
-    originals = rec["raw"]["panels"]
+    panels = (rec["reviewed"] or {}).get("panels") or rec["raw"]["panels"]
 
     ws = load_workspace() or {"shots": [], "stages": [], "people": [], "cells": {}, "project": {}}
     ws.setdefault("shots", [])
@@ -109,11 +102,8 @@ def api_commit(import_id):
     default_stage_ids = body.get("default_stage_ids", [])
 
     added = []
-    for i, p in enumerate(panels):
-        if not isinstance(p, dict) or not p.get("include", True): continue
-        original = originals[i] if i < len(originals) else {}
-        if not p.get("number") or p.get("duration") in (None, ""):
-            return jsonify({"error": f"shot {i+1}: number and duration required"}), 400
+    for p in panels:
+        if not p.get("include", True): continue
         shot_id = "sh_" + uuid.uuid4().hex[:8]
         shot = {
             "id": shot_id,
@@ -121,9 +111,9 @@ def api_commit(import_id):
             "description": p.get("description", ""),
             "notes": p.get("notes", ""),
             "dialogue": p.get("dialogue", ""),
-            "duration": float(p["duration"]),
+            "duration": int(p.get("duration") or 4),
             "order": len(ws["shots"]),
-            "thumbnail": original.get("thumbnail_b64", ""),
+            "thumbnail": p.get("thumbnail_b64", ""),
             "elements": [{"id": "el_" + uuid.uuid4().hex[:8], "name": default_elem_name}],
         }
         ws["shots"].append(shot)
