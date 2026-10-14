@@ -905,8 +905,8 @@ function renderImport(root) {
       <div class="card">
         <h3 style="margin-top:0">Storyboard importer unavailable</h3>
         <p class="muted">
-          The front-end file <code>/static/app.js</code> did not load.
-          The import module did not initialize. Check /static/app.js in the browser network panel, then reload.
+          The importer did not initialize. <a href="/static/app.js" target="_blank" rel="noopener">Check the module URL</a> and open the browser console for details.
+          If this is an older deployment, pull the latest branch and restart Flask.
         </p>
       </div>`;
   }
@@ -1059,15 +1059,13 @@ $$('#tabs button').forEach(b => b.onclick = () => {
 })();
 
 /* ---------- Boot ---------- */
-(async function boot(){
-  state = await loadState();
-  render();
-})();
+window.addEventListener("DOMContentLoaded", async () => {
+  try { state = await loadState(); render(); }
+  catch (error) { console.error("[workspace] startup error", error); }
+});
 </script>
 
-<!-- ============================================================
-     IMPORT WIZARD (loaded from /static/app.js)
-     ============================================================ -->
+<!-- Import module must load before DOMContentLoaded boots the workspace. -->
 <script src="/static/app.js"></script>
 
 </body>
