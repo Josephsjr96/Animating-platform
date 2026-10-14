@@ -22,7 +22,9 @@ def agent_analyze(image_bytes: bytes, template: str = "default") -> dict | None:
             headers["Authorization"] = f"Bearer {AGENT_TOKEN}"
         r = requests.post(
             f"{AGENT_URL.rstrip('/')}/analyze",
-            json={"image_b64": b64, "template": template},
+            json={"image_b64": b64, "template": template,
+                  "task": "Japanese storyboard visual understanding",
+                  "instructions": "Use image vision, not Latin OCR. Identify drawn panel rectangles and their associated right-side handwritten Japanese metadata. Return panels in reading order with pixel bbox {x,y,w,h}, number, description, notes, dialogue, duration in seconds and confidence. Never invent unreadable fields; use null or empty strings. Return JSON only."},
             headers=headers, timeout=TIMEOUT,
         )
         r.raise_for_status()
