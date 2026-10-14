@@ -73,8 +73,10 @@ def _detect_panels(image_bytes: bytes) -> List[Dict]:
 
     # de-duplicate overlapping detections (keep the largest per cluster)
     panels = _dedupe(panels)
-    # sort top→bottom, then left→right (row-bucket so columns read L→R)
-    panels.sort(key=lambda p: (p["y"] // max(1, h // 6), p["x"]))
+    # E-konte panels read top-to-bottom. The narrow cut and notes columns
+    # are metadata, not image panels.
+    panels = [p for p in panels if p["x"] < w * 0.7 and p["x"] + p["w"] > w * 0.08]
+    panels.sort(key=lambda p: (p["y"], p["x"]))
     return panels
 
 def _dedupe(panels: List[Dict]) -> List[Dict]:
@@ -114,8 +116,10 @@ def analyze_storyboard(image_bytes: bytes, use_agent=None) -> Dict:
     """
     if use_agent:
         remote = use_agent(image_bytes)
-        if remote and remote.get("panels"):
-            return _normalize(remote, source="agent", image_bytes=image_bytes)
+        if isinstance(remote, dict) and isinstance(remote.get("panels"), list) and remote["panels"]:
+            result = _normalize(remote, source="agent", image_bytes=image_bytes)
+            if result["panels"]:
+                return result
 
     img = _to_cv(image_bytes)
     panels_geo = _detect_panels(image_bytes)
