@@ -1,0 +1,11 @@
+name = "animating-storyboard-vision"
+main = "src/index.js"
+compatibility_date = "2026-10-15"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+# Required secret (set through Cloudflare dashboard or Wrangler):
+# npx wrangler secret put VISION_API_TOKEN
+# Generate a long random value; do not place it in GitHub.
