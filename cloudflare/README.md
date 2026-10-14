@@ -6,9 +6,9 @@ The existing Worker `flat-waterfall-436c` is not modified. This Worker intention
 
 ## Deployment checklist
 
-1. Create a separate D1 database `animating-platform-staging` in Cloudflare.
-2. Run `npx wrangler d1 execute animating-platform-staging --remote --file=cloudflare/schema.sql`.
-3. Add its returned database UUID in `cloudflare/wrangler.toml`.
+1. **Completed:** Connected existing D1 database `animationplatform` (`46f5e209-97d9-495c-8fb2-07119bd1f018`).
+2. **Completed:** Applied `workspace` and `imports` schema via Cloudflare API; verified both tables exist.
+3. **Completed:** Configured the `DB` binding in `cloudflare/wrangler.toml`.
 4. From the `cloudflare` directory, run `npx wrangler deploy`.
 5. Check `/healthz` returns `ok: true` and `databaseConfigured: true`.
 6. Before enabling writes or scanning, add user authentication, size-safe image ingestion, persistent image storage, rate limits, and a verified vision Worker API contract.
