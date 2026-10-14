@@ -3,11 +3,10 @@ main = "src/index.js"
 compatibility_date = "2026-10-15"
 workers_dev = true
 
-# After creating a dedicated D1 database, uncomment and fill in its real ID:
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "animating-platform-staging"
-# database_id = "<D1_DATABASE_UUID>"
+[[d1_databases]]
+binding = "DB"
+database_name = "animationplatform"
+database_id = "46f5e209-97d9-495c-8fb2-07119bd1f018"
 
 [vars]
 ALLOWED_ORIGINS = "https://josephsjr96.github.io"
