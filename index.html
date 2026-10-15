@@ -117,7 +117,7 @@
 </style>
 
 <!-- Wizard + card styles for the import flow -->
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="static/style.css">
 </head>
 
 <body>
@@ -1046,16 +1046,16 @@ $$('#tabs button').forEach(b => b.onclick = () => {
 })();
 
 /* ---------- Boot ---------- */
-(async function boot(){
+window.addEventListener('DOMContentLoaded', async () => {
   state = await loadState();
   render();
-})();
+});
 </script>
 
 <!-- ============================================================
      IMPORT WIZARD (loaded from /static/app.js)
      ============================================================ -->
-<script src="/static/app.js"></script>
+<script src="static/app.js"></script>
 
 </body>
 </html>
