@@ -26,10 +26,20 @@ const API = {
         if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
       };
       xhr.onload = () => {
-        try { resolve(JSON.parse(xhr.responseText)); }
-        catch { reject(new Error('bad response from server')); }
+        const contentType = xhr.getResponseHeader('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          reject(new Error('Storyboard upload API is not connected. GitHub Pages cannot process uploads; a backend must proxy requests to the Vision Worker.'));
+          return;
+        }
+        try {
+          const result = JSON.parse(xhr.responseText);
+          if (xhr.status < 200 || xhr.status >= 300) reject(new Error(result.error || 'Upload failed (HTTP ' + xhr.status + ')'));
+          else resolve(result);
+        } catch {
+          reject(new Error('Storyboard API returned invalid JSON (HTTP ' + xhr.status + ')'));
+        }
       };
-      xhr.onerror = () => reject(new Error('network error'));
+      xhr.onerror = () => reject(new Error('Cannot reach storyboard upload API'));
       xhr.send(fd);
     });
   },
