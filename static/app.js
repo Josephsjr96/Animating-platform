@@ -5,58 +5,56 @@
    ============================================================ */
 
 /* ============ API client ============ */
+const CLOUD_API = 'https://animating-platform.josephsanjari1996.workers.dev';
+const ACCESS_STORE = 'animation-workspace-key';
 const API = {
-  async getWorkspace() {
-    return (await fetch('/api/workspace')).json();
+  key() {
+    let key = sessionStorage.getItem(ACCESS_STORE);
+    if (!key) {
+      key = prompt('Enter your private Workspace Access Key (WORKSPACE_ACCESS_KEY configured in Cloudflare):') || '';
+      if (key) sessionStorage.setItem(ACCESS_STORE, key);
+    }
+    if (!key) throw new Error('Workspace access key required. Configure WORKSPACE_ACCESS_KEY in Cloudflare first.');
+    return key;
   },
-  async saveWorkspace(state) {
-    return fetch('/api/workspace', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(state)
-    }).then(r => r.json());
+  async send(path, options={}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('X-Workspace-Key', this.key());
+    const response = await fetch(CLOUD_API+path, {...options, headers});
+    const type = response.headers.get('content-type') || '';
+    if (!type.includes('application/json')) throw new Error('Cloudflare API returned a non-JSON response (HTTP '+response.status+')');
+    const data = await response.json();
+    if (response.status===401) {
+      sessionStorage.removeItem(ACCESS_STORE);
+      throw new Error(data.error || 'Incorrect workspace key. Reload and enter the right key.');
+    }
+    if (!response.ok) throw new Error(data.error || 'Cloudflare API error HTTP '+response.status);
+    return data;
   },
-  async scan(file, onProgress) {
-    const fd = new FormData();
-    fd.append('file', file);
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/import/scan');
-      xhr.upload.onprogress = e => {
-        if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
-      };
-      xhr.onload = () => {
-        const contentType = xhr.getResponseHeader('content-type') || '';
-        if (!contentType.includes('application/json')) {
-          reject(new Error('Storyboard upload API is not connected. GitHub Pages cannot process uploads; a backend must proxy requests to the Vision Worker.'));
-          return;
-        }
+  getWorkspace() { return this.send('/api/workspace'); },
+  saveWorkspace(state) { return this.send('/api/workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}); },
+  scan(file,onProgress) {
+    const form=new FormData();form.append('file',file);
+    const key=this.key();
+    return new Promise((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST',CLOUD_API+'/api/import/scan');
+      xhr.setRequestHeader('X-Workspace-Key',key);
+      xhr.upload.onprogress=e=>{if(e.lengthComputable && onProgress)onProgress(e.loaded/e.total)};
+      xhr.onload=()=>{
         try {
-          const result = JSON.parse(xhr.responseText);
-          if (xhr.status < 200 || xhr.status >= 300) reject(new Error(result.error || 'Upload failed (HTTP ' + xhr.status + ')'));
-          else resolve(result);
-        } catch {
-          reject(new Error('Storyboard API returned invalid JSON (HTTP ' + xhr.status + ')'));
-        }
+          const data=JSON.parse(xhr.responseText);
+          if(xhr.status===401)sessionStorage.removeItem(ACCESS_STORE);
+          if(xhr.status<200||xhr.status>=300)reject(new Error(data.error||'Scan failed (HTTP '+xhr.status+')'));
+          else resolve(data);
+        }catch(e){reject(e instanceof SyntaxError?new Error('Cloudflare API returned invalid JSON (HTTP '+xhr.status+')'):e)}
       };
-      xhr.onerror = () => reject(new Error('Cannot reach storyboard upload API'));
-      xhr.send(fd);
+      xhr.onerror=()=>reject(new Error('Cannot reach Cloudflare API'));
+      xhr.send(form);
     });
   },
-  async review(id, payload) {
-    return fetch(`/api/import/${id}/review`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(r => r.json());
-  },
-  async commit(id, opts = {}) {
-    return fetch(`/api/import/${id}/commit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(opts)
-    }).then(r => r.json());
-  }
+  review(id,payload) { return this.send('/api/import/'+encodeURIComponent(id)+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); },
+  commit(id,opts) { return this.send('/api/import/'+encodeURIComponent(id)+'/commit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(opts||{})}); }
 };
 
 /* ============ Helpers ============ */
@@ -266,7 +264,13 @@ const Wizard = {
         const reviewResult = await API.review(this.state.result.import_id, payload);
         if (!reviewResult.ok) throw new Error(reviewResult.error || 'Review failed');
 
-        const ws = await API.getWorkspace();
+        const local = JSON.parse(localStorage.getItem('production-workspace-v1') || 'null');
+        let ws = await API.getWorkspace();
+        if (ws.empty) {
+          if (!local) throw new Error('No local workspace found. Open the Dashboard first.');
+          await API.saveWorkspace(local);
+          ws = local;
+        }
         const stageIds = (ws.stages || []).map(s => s.id);
 
         const res = await API.commit(this.state.result.import_id, {
@@ -275,8 +279,9 @@ const Wizard = {
         });
 
         if (!res.ok) throw new Error(res.error || 'Import failed');
+        if (res.workspace) localStorage.setItem('production-workspace-v1', JSON.stringify(res.workspace));
         $('#doneMsg').textContent =
-          `Added ${res.added.length} shots. Workspace now has ${res.total_shots} shots.`;
+          `Added ${res.added.length} shots. Workspace now has ${res.total_shots} shots. Refresh to see them in the dashboard.`;
         step(4);
       } catch (e) {
         console.error('[Wizard] commit failed:', e);
