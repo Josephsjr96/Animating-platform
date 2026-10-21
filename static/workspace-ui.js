@@ -3,6 +3,29 @@
   'use strict';
   const original = {render, renderShotList, renderCalendar, renderImport, openCellEditor, calendarEvents};
   const ui = {search:'', filter:'all', compact:false, expanded:new Set(), selected:new Set(), calendarMode:'month', queue:[], scanning:false, orderLocked:true, timelineGroup:'stage'};
+  function thumbnailSource(value) {
+    if (typeof value !== 'string') return '';
+    const source = value.trim();
+    if (!source) return '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(source)) return source;
+    if (/^https?:\/\//i.test(source)) return source;
+    const raw = source.replace(/\s/g, '');
+    return /^[A-Za-z0-9+/]+={0,2}$/.test(raw) ? 'data:image/png;base64,' + raw : '';
+  }
+  function showThumbnail(container, value, label) {
+    const source = thumbnailSource(value);
+    container.replaceChildren();
+    if (!source) return;
+    const image = document.createElement('img');
+    image.alt = label;
+    image.src = source;
+    image.onerror = () => {
+      image.remove();
+      container.dataset.imageError = 'true';
+      container.title = 'Thumbnail could not load. Upload a replacement image.';
+    };
+    container.append(image);
+  }
   const titles = {
     shotlist:['THE PRODUCTION FLOOR','Every frame starts here.','Shape the story, track the details, and keep your team moving together.','01 / SHOT LIST'],
     calendar:['THE BIG PICTURE','Make room for the story.','A shared rhythm for your production. Every task date, in one place.','02 / SCHEDULE'],
@@ -118,7 +141,9 @@
           row.ondrop=e=>{e.preventDefault();const id=e.dataTransfer.getData('text/x-shot-id');const source=shotById(id);if(!source||source===shot)return;const at=state.shots.indexOf(shot);state.shots.splice(state.shots.indexOf(source),1);state.shots.splice(at,0,source);state.shots.forEach((s,i)=>s.order=i);saveState();render();};
           handle.onkeydown=e=>{if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(state.shots.indexOf(shot)+(e.key==='ArrowUp'?-1:1));document.querySelector(`[aria-label="Move ${CSS.escape(shot.number)}"]`)?.focus();}};
         }
-        const thumb=row.querySelector('.thumb');thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`Upload thumbnail for ${shot.number}`);thumb.onclick=()=>uploadThumbnail(shot);thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();uploadThumbnail(shot);}};
+        const thumb=row.querySelector('.thumb');
+        showThumbnail(thumb,shot.thumbnail||shot.thumbnail_b64,`Storyboard thumbnail for ${shot.number}`);
+        thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`Upload thumbnail for ${shot.number}`);thumb.onclick=()=>uploadThumbnail(shot);thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();uploadThumbnail(shot);}};
         const dialogue=row.querySelector('[data-field=dialogue]');const text=document.createElement('textarea');for(const a of dialogue.attributes)if(a.name!=='value')text.setAttribute(a.name,a.value);text.value=shot.dialogue||'';text.placeholder='Add dialogue…';text.setAttribute('aria-label',`Dialogue for ${shot.number}`);text.onchange=()=>{shot.dialogue=text.value;saveState();};dialogue.replaceWith(text);
         row.querySelectorAll('[data-field]').forEach(input=>input.setAttribute('aria-label',`${input.dataset.field} for ${shot.number}`));
         const duration=row.querySelector('[data-field=duration]');duration.min='0.1';duration.step='0.1';duration.onchange=()=>{if(Number(duration.value)>0){shot.duration=Number(duration.value);saveState();render();}else{duration.value=shot.duration;toast('Duration must be greater than zero.');}};
@@ -263,6 +288,16 @@
       observer.observe(done,{attributes:true,attributeFilter:['hidden']});
     }
     draw();
+  };
+  const renderReview=Wizard._renderReview.bind(Wizard);
+  Wizard._renderReview=function(list,counter){
+    renderReview(list,counter);
+    list.querySelectorAll('.review-card').forEach(card=>{
+      const panel=Wizard.state.panels.find(p=>p._idx===Number(card.dataset.idx));
+      const value=panel?.thumbnail_b64||panel?.thumbnail;
+      if(!value)return;
+      showThumbnail(card.querySelector('.thumb'),value,`Storyboard panel ${panel.number||Number(card.dataset.idx)+1}`);
+    });
   };
   const mountWizard=Wizard.mount.bind(Wizard);
   Wizard.mount=function(root){
