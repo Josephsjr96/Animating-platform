@@ -17,11 +17,15 @@ This checkout was cloned from `Josephsjr96/Animating-platform` before any edits.
 
 ## Backend boundary
 
-`server/`, `static/app.js`, `static/style.css`, and `.github/` are unchanged from the cloned revision. `index.html` adds only two resource references. The new CSS and JavaScript are an additive layer; removing those references restores the original UI.
+`server/`, `static/app.js`, `static/style.css`, and `.github/` are unchanged from the cloned revision. `index.html` adds only three resource references. The new CSS and JavaScript are an additive layer; removing those references restores the original UI.
 
-No Worker deployment, migration, secret, production workspace, API URL, authentication method, request field, or existing API-client implementation was changed. The new scan queue calls the existing `API.scan(file)` one page at a time; review and commit still run through the original wizard. Workspace edits use the original persistence functions and data structure.
+No Worker deployment, migration, secret, production workspace, API URL, authentication method, request field, or existing API-client implementation was changed. The new scan queue calls the existing `API.scan(file)` one page at a time; review and commit still run through the original wizard. Workspace edits retain the original data structure and use the existing authenticated Cloudflare client through an additive synchronization adapter.
 
-The original workspace persistence uses same-origin `/api/workspace` with a local-cache fallback, while storyboard import uses the Cloudflare API client. This existing distinction is preserved. A plain static preview therefore shows the local/cache workspace, and does not prove authenticated Cloudflare synchronization. No production key was needed or used for testing.
+The original workspace persistence used same-origin `/api/workspace`, which does not reach Cloudflare on GitHub Pages. `static/workspace-sync.js` now routes workspace reads and writes through the same existing `API.getWorkspace` / `API.saveWorkspace` client used by imports. Requests retain the original API URLs, authentication header and workspace schema.
+
+Opening an account performs no writes and does not populate the server with sample shots. Saves are serialized with immutable snapshots. Import commits wait for pending saves, temporarily prevent further UI edits, and adopt the returned workspace. Failed or offline edits are retained under a separate browser-storage key, with a **Download local backup** action. The adapter never automatically uploads an offline cache or merges it over the cloud workspace on reconnect. Cross-tab and multi-user concurrent editing remain outside this change; the existing whole-workspace API has no added revision control.
+
+No production workspace key was needed or used for testing. A live unauthenticated OPTIONS request confirmed that the Worker permits GET/POST from `https://josephsjr96.github.io` with the existing `X-Workspace-Key` and `Content-Type` headers. This checks CORS, not authenticated scanning or persistence.
 
 ## PDF scope requiring separate work
 
@@ -29,7 +33,7 @@ The PDF also proposes real-time chat/video, multiple assignees per task, arbitra
 
 ## Validation
 
-`tests/ui.mjs` uses Playwright with all `/api/` traffic intercepted, including Cloudflare requests. Tests exercise shot editing, status changes, thumbnails, ordering, scheduling, single-page UI preservation, batch scanning, original review/commit calls, and layout at 390, 768, 1024, and 1440 pixels. See `screenshots/validation.json` and the accompanying screenshots. This verifies frontend behavior and request compatibility with fixtures, not live OCR quality, live backend performance, or a production import.
+`tests/ui.mjs` uses Playwright with all `/api/` traffic intercepted, including Cloudflare requests. 52 browser checks exercise shot editing, status changes, thumbnails, ordering, scheduling, single-page UI preservation, batch scanning, original review/commit calls, and layout at 390, 768, 1024, and 1440 pixels. See `screenshots/validation.json` and the accompanying screenshots. This verifies frontend behavior and request compatibility with fixtures, not live OCR quality, live backend performance, or a production import.
 
 Run a static preview with `python -m http.server 4182 --bind 127.0.0.1`. Then, with Playwright available:
 
@@ -37,6 +41,12 @@ Run a static preview with `python -m http.server 4182 --bind 127.0.0.1`. Then, w
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node tests/ui.mjs
 ```
 
-Tests default to `/usr/bin/chromium`; override `CHROMIUM_PATH` when needed. No packages were added to the application.
+Tests default to `/usr/bin/chromium`; override `CHROMIUM_PATH` when needed. Five additional persistence tests cover no-write startup, ordered save snapshots, failure recovery, import/save ordering, and authentication fallback:
 
-The review branch does not trigger the existing main-only Pages deployment. Production publication should be a separate reviewed step.
+```bash
+node tests/workspace-sync.mjs
+```
+
+No packages were added to the application.
+
+The existing main-only GitHub Pages workflow publishes the frontend when this branch is merged. It does not deploy or modify the Cloudflare Worker.

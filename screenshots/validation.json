@@ -2,6 +2,8 @@
   "checks": [
     "Shot list is the default view",
     "No startup JavaScript errors",
+    "Workspace loads from authenticated Cloudflare client",
+    "Startup does not write to production workspace",
     "Desktop has no document overflow",
     "Existing shot elements expand on demand",
     "Shot order can be changed with the keyboard",
@@ -29,6 +31,9 @@
     "Batch result opens original review flow",
     "Existing review and commit endpoints are reused",
     "Imported queue page cannot be committed twice",
+    "Imported workspace is adopted in memory",
+    "Imported shot appears immediately in shot list",
+    "Imported shot survives a cloud reload",
     "390px Shot list has no document overflow",
     "390px Calendar has no document overflow",
     "390px Timeline has no document overflow",
@@ -45,9 +50,10 @@
     "1024px Timeline has no document overflow",
     "1024px Storyboard import has no document overflow",
     "1024px Workspace settings has no document overflow",
-    "No JavaScript errors across all interactions"
+    "No JavaScript errors across all interactions",
+    "No workspace requests use the static website origin"
   ],
   "errors": [],
-  "apiCalls": 21,
+  "apiCalls": 22,
   "productionRequests": 0
 }

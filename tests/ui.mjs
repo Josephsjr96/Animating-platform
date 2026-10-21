@@ -8,10 +8,16 @@ const context=await browser.newContext({viewport:{width:1440,height:1000},reduce
 const page=await context.newPage();const errors=[];const checks=[];const calls=[];
 page.on('pageerror',e=>errors.push(e.message));
 const check=(name,value)=>{assert.ok(value,name);checks.push(name);console.log('PASS '+name);};
-let workspace=null;let scans=0;
+let workspace={
+  project:{name:'Test production',start:'2026-10-01',deadline:'2026-12-31'},
+  people:[{id:'p1',name:'Director',color:'#80dac5'}],
+  stages:[{id:'rough',name:'Rough Animation',weight:3},{id:'comp',name:'Compositing',weight:2}],
+  shots:['SH010','SH020'].map((number,i)=>({id:'shot'+i,number,description:'Storyboard shot',notes:'Director notes',dialogue:'',duration:4,order:i,thumbnail:'',elements:[{id:'main'+i,name:'Main Character'},{id:'crow'+i,name:'Crow'},{id:'bg'+i,name:'Background'}]})),
+  cells:{},weeklyTargets:{},importQueue:[]
+};let scans=0;
 await context.route('**/api/**',async route=>{
   const request=route.request();const path=new URL(request.url()).pathname;
-  calls.push({method:request.method(),path});
+  calls.push({method:request.method(),path,url:request.url(),key:request.headers()['x-workspace-key']});
   let data={};
   if(path==='/api/workspace'){
     if(request.method()==='POST'){workspace=request.postDataJSON();data={ok:true};}
@@ -19,7 +25,10 @@ await context.route('**/api/**',async route=>{
   }else if(path==='/api/import/scan'){
     scans++;data={import_id:'test-import-'+scans,panel_count:1,source:'test fixture',panels:[{number:'TEST'+scans,description:'Director review',dialogue:'',duration:4,confidence:.9,notes:'',thumbnail_b64:''}]};
   }else if(path.endsWith('/review'))data={ok:true};
-  else if(path.endsWith('/commit'))data={ok:true,added:['test'],total_shots:workspace.shots.length+1,workspace};
+  else if(path.endsWith('/commit')){
+    workspace.shots.push({id:'imported-shot',number:'IMPORTED',description:'Imported page',notes:'',dialogue:'',duration:4,order:workspace.shots.length,thumbnail:'',elements:[]});
+    data={ok:true,added:['imported-shot'],total_shots:workspace.shots.length,workspace};
+  }
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
 });
 await page.addInitScript(()=>sessionStorage.setItem('animation-workspace-key','test-key'));
@@ -29,6 +38,8 @@ try{
   await page.waitForSelector('#shotTable');await page.waitForSelector('#splash',{state:'detached'});
   check('Shot list is the default view',await page.getByRole('heading',{name:'Every frame starts here.'}).isVisible());
   check('No startup JavaScript errors',errors.length===0);
+  check('Workspace loads from authenticated Cloudflare client',calls.some(c=>c.path==='/api/workspace'&&c.url.startsWith('https://animating-platform.josephsanjari1996.workers.dev/')&&c.key==='test-key'));
+  check('Startup does not write to production workspace',!calls.some(c=>c.method==='POST'));
   check('Desktop has no document overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.screenshot({path:'screenshots/studio-desktop.png',fullPage:true});
   await page.getByRole('button',{name:'+ 3 elements',exact:true}).first().click();
@@ -104,6 +115,16 @@ try{
   await page.waitForSelector('.step-4:not([hidden])');
   check('Existing review and commit endpoints are reused',calls.some(c=>c.path==='/api/import/test-import-2/review')&&calls.some(c=>c.path==='/api/import/test-import-2/commit'));
   check('Imported queue page cannot be committed twice',await page.getByRole('button',{name:'Imported ✓'}).isDisabled());
+  check('Imported workspace is adopted in memory',await page.evaluate(()=>state.shots.some(s=>s.id==='imported-shot')));
+  await page.getByRole('button',{name:'Shot list',exact:true}).click();
+  check('Imported shot appears immediately in shot list',await page.getByRole('textbox',{name:'Shot number IMPORTED',exact:true}).isVisible());
+  await page.reload({waitUntil:'networkidle'});await page.waitForSelector('#shotTable');
+  check('Imported shot survives a cloud reload',await page.getByRole('textbox',{name:'Shot number IMPORTED',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Storyboard import',exact:true}).click();
+  await page.locator('.scan-queue summary').click();
+  await page.getByLabel('Storyboard page queue').setInputFiles({name:'preview.png',mimeType:'image/png',buffer:png});
+  await page.getByRole('button',{name:'Scan queued pages',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelectorAll('.queue-item button').length===1);
   await page.getByRole('button',{name:'Review page →',exact:true}).first().click();
   await page.screenshot({path:'screenshots/studio-import.png',fullPage:true});
   for(const width of [390,768,1024]){
@@ -120,6 +141,7 @@ try{
     await page.screenshot({path:`screenshots/studio-${width}.png`,fullPage:true});
   }
   check('No JavaScript errors across all interactions',errors.length===0);
+  check('No workspace requests use the static website origin',calls.every(c=>c.url.startsWith('https://animating-platform.josephsanjari1996.workers.dev/')));
   await writeFile('screenshots/validation.json',JSON.stringify({checks,errors,apiCalls:calls.length,productionRequests:0},null,2));
   console.log(`${checks.length} checks passed. All API requests were mocked.`);
 }finally{await browser.close();}
