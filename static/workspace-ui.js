@@ -3,6 +3,107 @@
   'use strict';
   const original = {render, renderShotList, renderCalendar, renderImport, openCellEditor, calendarEvents};
   const ui = {search:'', filter:'all', compact:false, expanded:new Set(), selected:new Set(), calendarMode:'month', queue:[], scanning:false, orderLocked:true, timelineGroup:'stage'};
+  function thumbnailSource(value) {
+    if (typeof value !== 'string') return '';
+    const source = value.trim();
+    if (!source) return '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(source)) return source;
+    if (/^https?:\/\//i.test(source)) return source;
+    const raw = source.replace(/\s/g, '');
+    return /^[A-Za-z0-9+/]+={0,2}$/.test(raw) ? 'data:image/png;base64,' + raw : '';
+  }
+  function showThumbnail(container, value, label) {
+    const source = thumbnailSource(value);
+    container.replaceChildren();
+    if (!source) return;
+    const image = document.createElement('img');
+    image.alt = label;
+    image.src = source;
+    image.onerror = () => {
+      image.remove();
+      container.dataset.imageError = 'true';
+      container.title = 'Thumbnail could not load. Upload a replacement image.';
+    };
+    container.append(image);
+  }
+  // Cloud scans may return artwork coordinates without encoded crop pixels.
+  // Use the uploaded image for those crops; detection still belongs to the scanner.
+  const scanResults = new Map();
+  const reviewedPanels = new Map();
+  const scanPage = API.scan.bind(API);
+  API.scan = async function(file, onProgress) {
+    const result = await scanPage(file, onProgress);
+    if (!Array.isArray(result.panels)) return result;
+    const missing = result.panels.filter(p => !thumbnailSource(p.thumbnail_b64 || p.thumbnail));
+    if (missing.length) {
+      let image;
+      try {
+        image = await createImageBitmap(file);
+        for (const panel of missing) {
+          const box = panel.bbox;
+          if (!box || !['x','y','w','h'].every(k => typeof box[k] === 'number' && Number.isFinite(box[k])) || box.w <= 0 || box.h <= 0) continue;
+          const x = Math.max(0, Math.floor(box.x)), y = Math.max(0, Math.floor(box.y));
+          const right = Math.min(image.width, Math.ceil(box.x + box.w));
+          const bottom = Math.min(image.height, Math.ceil(box.y + box.h));
+          const width = right - x, height = bottom - y;
+          if (width <= 0 || height <= 0) continue;
+          const scale = Math.min(1, 320 / Math.max(width, height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          canvas.getContext('2d').drawImage(image, x, y, width, height, 0, 0, canvas.width, canvas.height);
+          panel.thumbnail_b64 = canvas.toDataURL('image/png').split(',')[1];
+          panel._clientCrop = true;
+        }
+      } catch (error) {
+        console.warn('[storyboard] Could not build preview crops:', error.message);
+      } finally { image?.close(); }
+    }
+    scanResults.set(result.import_id, result.panels);
+    if (scanResults.size > 30) {
+      const oldest = scanResults.keys().next().value;
+      scanResults.delete(oldest);reviewedPanels.delete(oldest);
+    }
+    return result;
+  };
+  const reviewPage = API.review.bind(API);
+  API.review = async function(id, payload) {
+    const result = await reviewPage(id, payload);
+    const originals = scanResults.get(id);
+    if (result.ok && originals && Array.isArray(payload.panels)) {
+      reviewedPanels.set(id, payload.panels.map((p, i) => p.include === false ? null : originals[i]).filter(Boolean));
+    }
+    return result;
+  };
+  const commitPage = API.commit.bind(API);
+  API.commit = async function(id, options) {
+    const wasInert = document.body.inert;
+    document.body.inert = true;
+    try {
+      const result = await commitPage(id, options);
+      const panels = reviewedPanels.get(id);
+      if (!result.ok || !panels?.some(p => p._clientCrop) || !Array.isArray(result.added) || result.added.length !== panels.length) return result;
+      // Retain generated crops in the existing shot.thumbnail field. No new API
+      // fields are sent to scan/review/commit and no Worker change is required.
+      let workspace;
+      try { workspace = result.workspace || await API.getWorkspace(); }
+      catch { toast('Shots imported. Thumbnail sync could not finish; keep this page open.');return result; }
+      if (!Array.isArray(workspace.shots)) return result;
+      let changed = false;
+      panels.forEach((panel, i) => {
+        const shot = workspace.shots.find(s => s.id === result.added[i]);
+        if (shot && panel._clientCrop && !thumbnailSource(shot.thumbnail || shot.thumbnail_b64)) {
+          shot.thumbnail = panel.thumbnail_b64;changed = true;
+        }
+      });
+      if (changed) {
+        state = workspace;
+        result.workspace = workspace;
+        if (!await saveState(workspace)) toast('Shots imported. Thumbnails are in the local backup until cloud saving is restored.');
+      }
+      return result;
+    } finally { document.body.inert = wasInert; }
+  };
   const titles = {
     shotlist:['THE PRODUCTION FLOOR','Every frame starts here.','Shape the story, track the details, and keep your team moving together.','01 / SHOT LIST'],
     calendar:['THE BIG PICTURE','Make room for the story.','A shared rhythm for your production. Every task date, in one place.','02 / SCHEDULE'],
@@ -118,7 +219,9 @@
           row.ondrop=e=>{e.preventDefault();const id=e.dataTransfer.getData('text/x-shot-id');const source=shotById(id);if(!source||source===shot)return;const at=state.shots.indexOf(shot);state.shots.splice(state.shots.indexOf(source),1);state.shots.splice(at,0,source);state.shots.forEach((s,i)=>s.order=i);saveState();render();};
           handle.onkeydown=e=>{if(e.altKey&&['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();move(state.shots.indexOf(shot)+(e.key==='ArrowUp'?-1:1));document.querySelector(`[aria-label="Move ${CSS.escape(shot.number)}"]`)?.focus();}};
         }
-        const thumb=row.querySelector('.thumb');thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`Upload thumbnail for ${shot.number}`);thumb.onclick=()=>uploadThumbnail(shot);thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();uploadThumbnail(shot);}};
+        const thumb=row.querySelector('.thumb');
+        showThumbnail(thumb,shot.thumbnail||shot.thumbnail_b64,`Storyboard thumbnail for ${shot.number}`);
+        thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`Upload thumbnail for ${shot.number}`);thumb.onclick=()=>uploadThumbnail(shot);thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();uploadThumbnail(shot);}};
         const dialogue=row.querySelector('[data-field=dialogue]');const text=document.createElement('textarea');for(const a of dialogue.attributes)if(a.name!=='value')text.setAttribute(a.name,a.value);text.value=shot.dialogue||'';text.placeholder='Add dialogue…';text.setAttribute('aria-label',`Dialogue for ${shot.number}`);text.onchange=()=>{shot.dialogue=text.value;saveState();};dialogue.replaceWith(text);
         row.querySelectorAll('[data-field]').forEach(input=>input.setAttribute('aria-label',`${input.dataset.field} for ${shot.number}`));
         const duration=row.querySelector('[data-field=duration]');duration.min='0.1';duration.step='0.1';duration.onchange=()=>{if(Number(duration.value)>0){shot.duration=Number(duration.value);saveState();render();}else{duration.value=shot.duration;toast('Duration must be greater than zero.');}};
@@ -263,6 +366,16 @@
       observer.observe(done,{attributes:true,attributeFilter:['hidden']});
     }
     draw();
+  };
+  const renderReview=Wizard._renderReview.bind(Wizard);
+  Wizard._renderReview=function(list,counter){
+    renderReview(list,counter);
+    list.querySelectorAll('.review-card').forEach(card=>{
+      const panel=Wizard.state.panels.find(p=>p._idx===Number(card.dataset.idx));
+      const value=panel?.thumbnail_b64||panel?.thumbnail;
+      if(!value)return;
+      showThumbnail(card.querySelector('.thumb'),value,`Storyboard panel ${panel.number||Number(card.dataset.idx)+1}`);
+    });
   };
   const mountWizard=Wizard.mount.bind(Wizard);
   Wizard.mount=function(root){

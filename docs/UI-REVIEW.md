@@ -14,6 +14,7 @@ This checkout was cloned from `Josephsjr96/Animating-platform` before any edits.
 - Year/month/week/day calendar views and a timeline grouped by stage or shot. Whole-shot due dates are included alongside element due dates. Calendar/timeline task links reveal the corresponding shot-list cell.
 - A queue of up to 20 storyboard images, scanned sequentially through the existing one-file API. Each page opens in the original review and import wizard. Single-page scanning remains available.
 - Imported workspace results cached by the original importer are adopted into UI memory so subsequent views use the imported data.
+- Scan review and shot-list thumbnails accept raw base64, complete image data URLs, and HTTP(S) image URLs. When a scan returns pixel bounding boxes without crop data, previews are cropped from the uploaded page in the browser. Generated crops are saved into the existing thumbnail field after the original import, preserving reviewed panel selection and returned shot IDs. Missing or invalid coordinates are never guessed.
 
 ## Backend boundary
 
