@@ -26,6 +26,84 @@
     };
     container.append(image);
   }
+  // Cloud scans may return artwork coordinates without encoded crop pixels.
+  // Use the uploaded image for those crops; detection still belongs to the scanner.
+  const scanResults = new Map();
+  const reviewedPanels = new Map();
+  const scanPage = API.scan.bind(API);
+  API.scan = async function(file, onProgress) {
+    const result = await scanPage(file, onProgress);
+    if (!Array.isArray(result.panels)) return result;
+    const missing = result.panels.filter(p => !thumbnailSource(p.thumbnail_b64 || p.thumbnail));
+    if (missing.length) {
+      let image;
+      try {
+        image = await createImageBitmap(file);
+        for (const panel of missing) {
+          const box = panel.bbox;
+          if (!box || !['x','y','w','h'].every(k => typeof box[k] === 'number' && Number.isFinite(box[k])) || box.w <= 0 || box.h <= 0) continue;
+          const x = Math.max(0, Math.floor(box.x)), y = Math.max(0, Math.floor(box.y));
+          const right = Math.min(image.width, Math.ceil(box.x + box.w));
+          const bottom = Math.min(image.height, Math.ceil(box.y + box.h));
+          const width = right - x, height = bottom - y;
+          if (width <= 0 || height <= 0) continue;
+          const scale = Math.min(1, 320 / Math.max(width, height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          canvas.getContext('2d').drawImage(image, x, y, width, height, 0, 0, canvas.width, canvas.height);
+          panel.thumbnail_b64 = canvas.toDataURL('image/png').split(',')[1];
+          panel._clientCrop = true;
+        }
+      } catch (error) {
+        console.warn('[storyboard] Could not build preview crops:', error.message);
+      } finally { image?.close(); }
+    }
+    scanResults.set(result.import_id, result.panels);
+    if (scanResults.size > 30) {
+      const oldest = scanResults.keys().next().value;
+      scanResults.delete(oldest);reviewedPanels.delete(oldest);
+    }
+    return result;
+  };
+  const reviewPage = API.review.bind(API);
+  API.review = async function(id, payload) {
+    const result = await reviewPage(id, payload);
+    const originals = scanResults.get(id);
+    if (result.ok && originals && Array.isArray(payload.panels)) {
+      reviewedPanels.set(id, payload.panels.map((p, i) => p.include === false ? null : originals[i]).filter(Boolean));
+    }
+    return result;
+  };
+  const commitPage = API.commit.bind(API);
+  API.commit = async function(id, options) {
+    const wasInert = document.body.inert;
+    document.body.inert = true;
+    try {
+      const result = await commitPage(id, options);
+      const panels = reviewedPanels.get(id);
+      if (!result.ok || !panels?.some(p => p._clientCrop) || !Array.isArray(result.added) || result.added.length !== panels.length) return result;
+      // Retain generated crops in the existing shot.thumbnail field. No new API
+      // fields are sent to scan/review/commit and no Worker change is required.
+      let workspace;
+      try { workspace = result.workspace || await API.getWorkspace(); }
+      catch { toast('Shots imported. Thumbnail sync could not finish; keep this page open.');return result; }
+      if (!Array.isArray(workspace.shots)) return result;
+      let changed = false;
+      panels.forEach((panel, i) => {
+        const shot = workspace.shots.find(s => s.id === result.added[i]);
+        if (shot && panel._clientCrop && !thumbnailSource(shot.thumbnail || shot.thumbnail_b64)) {
+          shot.thumbnail = panel.thumbnail_b64;changed = true;
+        }
+      });
+      if (changed) {
+        state = workspace;
+        result.workspace = workspace;
+        if (!await saveState(workspace)) toast('Shots imported. Thumbnails are in the local backup until cloud saving is restored.');
+      }
+      return result;
+    } finally { document.body.inert = wasInert; }
+  };
   const titles = {
     shotlist:['THE PRODUCTION FLOOR','Every frame starts here.','Shape the story, track the details, and keep your team moving together.','01 / SHOT LIST'],
     calendar:['THE BIG PICTURE','Make room for the story.','A shared rhythm for your production. Every task date, in one place.','02 / SCHEDULE'],
