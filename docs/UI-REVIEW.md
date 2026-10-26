@@ -30,7 +30,7 @@ No production workspace key was needed or used for testing. A live unauthenticat
 
 ## PDF scope requiring separate work
 
-The PDF also proposes real-time chat/video, multiple assignees per task, arbitrary spreadsheet tabs/columns, per-cell element hierarchies, a movable storyboard whiteboard, new published-status semantics, department metadata, and manually painted schedule blocks. These are not implemented as simulated UI features. They require additional data-model, service, or collaboration decisions beyond this frontend change. Scanner extraction semantics, including its treatment of descriptions, are unchanged.
+The PDF also proposes real-time chat/video, multiple assignees per task, arbitrary spreadsheet tabs/columns, per-cell element hierarchies, a movable storyboard whiteboard, department metadata, and manually painted schedule blocks. These are not implemented as simulated UI features. Published is now a supported completed status in the shot-list editor, bulk actions, filters, and production metrics; the remaining features require additional data-model, service, or collaboration decisions beyond this frontend change. Scanner extraction semantics, including its treatment of descriptions, are unchanged.
 
 ## Validation
 

@@ -196,9 +196,9 @@
     const toolbar=wrap.querySelector('.toolbar');
     const lock=document.createElement('button');lock.className='ghost';lock.textContent=ui.orderLocked?'⇅ Unlock shot order':'⇅ Lock shot order';lock.setAttribute('aria-pressed',String(ui.orderLocked));lock.onclick=()=>{ui.orderLocked=!ui.orderLocked;render();};toolbar.insertBefore(lock,toolbar.querySelector('.spacer'));
     const controls=document.createElement('div');controls.className='shot-controls';
-    controls.innerHTML=`<label class="shot-search"><span aria-hidden="true">⌕</span><input aria-label="Search shots" placeholder="Search shots, dialogue, or notes…" value="${escapeAttr(ui.search)}"></label><select aria-label="Filter shots by status"><option value="all">All statuses</option><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="done">Done</option></select><div class="spacer"></div><button class="density-button" aria-pressed="${ui.compact}">☷ &nbsp; ${ui.compact?'Comfortable rows':'Compact rows'}</button>`;
+    controls.innerHTML=`<label class="shot-search"><span aria-hidden="true">⌕</span><input aria-label="Search shots" placeholder="Search shots, dialogue, or notes…" value="${escapeAttr(ui.search)}"></label><select aria-label="Filter shots by status"><option value="all">All statuses</option><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="done">Done</option><option value="published">Published</option></select><div class="spacer"></div><button class="density-button" aria-pressed="${ui.compact}">☷ &nbsp; ${ui.compact?'Comfortable rows':'Compact rows'}</button>`;
     toolbar.after(controls);
-    const batch=document.createElement('div');batch.className='batch-bar';batch.hidden=true;batch.innerHTML='<strong data-selected></strong><span>Set all stage cells to</span><button data-bulk="not_started">Not started</button><button data-bulk="in_progress">In progress</button><button data-bulk="done">Done</button><button data-clear>Clear selection</button>';controls.after(batch);
+    const batch=document.createElement('div');batch.className='batch-bar';batch.hidden=true;batch.innerHTML='<strong data-selected></strong><span>Set all stage cells to</span><button data-bulk="not_started">Not started</button><button data-bulk="in_progress">In progress</button><button data-bulk="done">Done</button><button data-bulk="published">Published</button><button data-clear>Clear selection</button>';controls.after(batch);
     const shotRows=[];const rows=[...wrap.querySelectorAll('#shotTable tbody > tr')];
     let group=null;
     for(const row of rows){
@@ -264,7 +264,7 @@
     batch.querySelector('[data-clear]').onclick=()=>{ui.selected.clear();updateSelection();};
     batch.querySelectorAll('[data-bulk]').forEach(b=>b.onclick=()=>{
       state.shots.filter(s=>ui.selected.has(s.id)).forEach(shot=>{
-        [null,...shot.elements].forEach(element=>state.stages.forEach(st=>{const cell=getCell(shot.id,element?.id||null,st.id);cell.status=b.dataset.bulk;cell.completedAt=cell.status==='done'?(cell.completedAt||new Date().toISOString()):null;}));
+        [null,...shot.elements].forEach(element=>state.stages.forEach(st=>{const cell=getCell(shot.id,element?.id||null,st.id);cell.status=b.dataset.bulk;cell.completedAt=isCompleteStatus(cell.status)?(cell.completedAt||new Date().toISOString()):null;}));
       });saveState();render();toast('Selected shots updated.');
     });
     applyFilters();updateSelection();
@@ -290,7 +290,7 @@
     const groups=ui.timelineGroup==='stage'?state.stages:state.shots;
     groups.forEach(group=>{
       const tasks=events.filter(e=>(ui.timelineGroup==='stage'?e.stage.id:e.shot.id)===group.id);if(!tasks.length)return;
-      const row=document.createElement('div');row.className='timeline-row';const completed=tasks.filter(e=>e.cell.status==='done').length;
+      const row=document.createElement('div');row.className='timeline-row';const completed=tasks.filter(e=>isCompleteStatus(e.cell.status)).length;
       row.innerHTML=`<div class="timeline-label"><strong>${escapeHtml(group.name||group.number)}</strong><small>${completed} / ${tasks.length} tasks done</small></div><div class="timeline-track"></div>`;
       const track=row.querySelector('.timeline-track');const min=Math.min(...tasks.map(e=>left(e.date))),max=Math.max(...tasks.map(e=>left(e.date)));
       const span=document.createElement('div');span.className='timeline-span';span.style.left=min+'%';span.style.width=Math.max(1,max-min)+'%';track.append(span);

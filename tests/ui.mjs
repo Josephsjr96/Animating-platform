@@ -65,8 +65,8 @@ try{
   check('Bulk creation adds 20 shots',await page.evaluate(()=>state.shots.length)===initial+20);
   check('New shots have no default elements',await page.evaluate(()=>state.shots.slice(-20).every(s=>s.elements.length===0)));
   await page.getByRole('checkbox',{name:'Select SH010',exact:true}).check();
-  await page.locator('[data-bulk=done]').click();
-  check('Bulk status updates shot and element cells',await page.evaluate(()=>state.stages.every(st=>getCell(state.shots[0].id,null,st.id).status==='done'&&state.shots[0].elements.every(e=>getCell(state.shots[0].id,e.id,st.id).status==='done'))));
+  await page.locator('[data-bulk=published]').click();
+  check('Published status updates shot and element cells',await page.evaluate(()=>state.stages.every(st=>getCell(state.shots[0].id,null,st.id).status==='published'&&state.shots[0].elements.every(e=>getCell(state.shots[0].id,e.id,st.id).status==='published'))));
   await page.evaluate(()=>{const shot=state.shots.at(-1);getCell(shot.id,null,state.stages[0].id).due=iso(today());});
   check('Whole-shot dates are included in scheduling',await page.evaluate(()=>calendarEvents().some(e=>e.shot.id===state.shots.at(-1).id)));
   const cell=page.locator('#shotTable .cell').first();await cell.focus();await page.keyboard.press('Enter');

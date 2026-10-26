@@ -60,6 +60,7 @@
   .s-not_started{background:rgba(107,114,128,.18);color:#cbd5e1}
   .s-in_progress{background:rgba(245,158,11,.18);color:#fcd34d}
   .s-done{background:rgba(34,197,94,.18);color:#86efac}
+  .s-published{background:rgba(168,85,247,.24);color:#e9d5ff;border-color:#7e22ce}
   .meta{font-size:11px;color:var(--muted);margin-top:3px}
   .shotnum{font-weight:600}
   .desc{max-width:260px}
@@ -309,6 +310,7 @@ const shotById = id => state.shots.find(s => s.id === id);
 const personById = id => state.people.find(p => p.id === id);
 const stageById = id => state.stages.find(s => s.id === id);
 const cellKey = (shotId, elemId, stageId) => `${shotId}|${elemId||'_'}|${stageId}`;
+const isCompleteStatus = status => status === 'done' || status === 'published';
 function getCell(shotId, elemId, stageId) {
   const k = cellKey(shotId, elemId, stageId);
   if (!state.cells[k]) state.cells[k] = { status:'not_started', assignee:null, due:'', completedAt:null };
@@ -322,9 +324,9 @@ function stageCompletion(stageId) {
     total += shot.duration;
     const elems = shot.elements;
     if (!elems.length) {
-      if (getCell(shot.id, null, stageId).status === 'done') done += shot.duration;
+      if (isCompleteStatus(getCell(shot.id, null, stageId).status)) done += shot.duration;
     } else {
-      const allDone = elems.every(el => getCell(shot.id, el.id, stageId).status === 'done');
+      const allDone = elems.every(el => isCompleteStatus(getCell(shot.id, el.id, stageId).status));
       if (allDone) done += shot.duration;
     }
   });
@@ -351,11 +353,11 @@ function weeklySpeed(stageId, weeks=4) {
     const elems = shot.elements;
     if (!elems.length) {
       const c = getCell(shot.id, null, stageId);
-      if (c.status==='done' && c.completedAt && new Date(c.completedAt).getTime() >= since) doneSeconds += shot.duration;
+      if (isCompleteStatus(c.status) && c.completedAt && new Date(c.completedAt).getTime() >= since) doneSeconds += shot.duration;
     } else {
       const allDone = elems.every(el => {
         const c = getCell(shot.id, el.id, stageId);
-        return c.status==='done' && c.completedAt && new Date(c.completedAt).getTime() >= since;
+        return isCompleteStatus(c.status) && c.completedAt && new Date(c.completedAt).getTime() >= since;
       });
       if (allDone) doneSeconds += shot.duration;
     }
@@ -410,7 +412,7 @@ function weeklyActuals(weeks=8) {
       const elems = shot.elements;
       const stageDoneCount = state.stages.filter(st => elems.every(el => {
         const c = getCell(shot.id, el.id, st.id);
-        return c.status==='done' && c.completedAt && new Date(c.completedAt) >= ws && new Date(c.completedAt) < we;
+        return isCompleteStatus(c.status) && c.completedAt && new Date(c.completedAt) >= ws && new Date(c.completedAt) < we;
       })).length;
       seconds += shot.duration * (stageDoneCount / state.stages.length);
     });
@@ -654,7 +656,7 @@ function renderShotList(root) {
 function cellTd(shot, el, stage) {
   const c = getCell(shot.id, el ? el.id : null, stage.id);
   const p = personById(c.assignee);
-  const overdue = c.due && new Date(c.due) < today() && c.status !== 'done';
+  const overdue = c.due && new Date(c.due) < today() && !isCompleteStatus(c.status);
   return `
     <td>
       <div class="cell" data-key="${cellKey(shot.id, el?el.id:null, stage.id)}">
@@ -684,6 +686,7 @@ function openCellEditor(key, x, y) {
       <button data-s="not_started" class="${c.status==='not_started'?'primary':''}">Not started</button>
       <button data-s="in_progress" class="${c.status==='in_progress'?'primary':''}">In progress</button>
       <button data-s="done" class="${c.status==='done'?'primary':''}">Done</button>
+      <button data-s="published" class="${c.status==='published'?'primary':''}">Published</button>
     </div>
     <label>Assignee</label>
     <select id="assignee" style="width:100%">
@@ -720,8 +723,8 @@ function openCellEditor(key, x, y) {
     c.status = newStatus;
     c.assignee = $('#assignee', pop).value || null;
     c.due = $('#due', pop).value || '';
-    if (newStatus === 'done' && !c.completedAt) c.completedAt = new Date().toISOString();
-    if (newStatus !== 'done') c.completedAt = null;
+    if (isCompleteStatus(newStatus) && !c.completedAt) c.completedAt = new Date().toISOString();
+    if (!isCompleteStatus(newStatus)) c.completedAt = null;
     saveState(); closeEditor(); render();
   };
   setTimeout(() => document.addEventListener('click', outsideClose), 0);
@@ -791,7 +794,7 @@ function renderGantt(root) {
           if (!max || d > max) max = d;
         }
         total++;
-        if (c.status === 'done') done++;
+        if (isCompleteStatus(c.status)) done++;
       });
     });
     return { shot, min, max, progress: total ? done/total : 0 };
@@ -841,7 +844,7 @@ function renderMilestones(root) {
             const shots = state.shots.filter(s => s.elements.every(el =>
               state.stages.every(st => {
                 const c = getCell(s.id, el.id, st.id);
-                return c.status==='done' && c.completedAt &&
+                return isCompleteStatus(c.status) && c.completedAt &&
                   new Date(c.completedAt) >= w.weekStart &&
                   new Date(c.completedAt) < addDays(w.weekStart, 7);
               })
