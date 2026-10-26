@@ -119,6 +119,9 @@
 <!-- Wizard + card styles for the import flow -->
 <link rel="stylesheet" href="static/style.css">
 <link rel="stylesheet" href="static/workspace-ui.css">
+<style>
+.drawing-group-controls{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.drawing-group-controls label{min-width:0;flex:1}.drawing-group-controls select{max-width:100%;width:100%}.local-review-tools select{max-width:100%;margin:8px}.local-review-tools p,[data-grouping-notice]{overflow-wrap:anywhere}
+</style>
 </head>
 
 <body>
@@ -138,6 +141,7 @@
 
 <header>
   <h1>🎬 Production Workspace</h1>
+  <a href="../index.html" style="color:inherit;font-size:12px">← Nuvren Studio</a>
   <nav id="tabs">
     <button data-tab="dashboard" class="active">Dashboard</button>
     <button data-tab="shotlist">Shot List</button>
@@ -1059,6 +1063,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 <script src="static/app.js"></script>
 <script src="static/workspace-sync.js"></script>
 <script src="static/workspace-ui.js"></script>
+<script src="static/storyboard-review.js"></script>
 
 </body>
 </html>

@@ -1,3 +1,8 @@
+@font-face{font-family:Cinzel;src:url('/login-assets/cinzel.woff2') format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:Inter;src:url('/login-assets/inter.woff2') format('woff2');font-weight:100 900;font-display:swap}
+:root{--bg:#07071a;--panel:#111027;--panel2:#191535;--line:#8a70c044;--text:#eee6ff;--muted:#a39ab8;--accent:#c5b3e9;--accent2:#9d7be5;--radius:2px;--shadow:0 16px 50px #05040e99}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);background-image:radial-gradient(circle at 75% 0%,#6e4db51c,transparent 38%),linear-gradient(180deg,#0a0920,#07071a)}
+header{padding:20px 5.2%;background:#0b0a20e8;border-bottom:1px solid #8a70c044;backdrop-filter:blur(14px)}header h1{font-family:Cinzel,serif;font-size:20px;font-weight:400;letter-spacing:1px;color:#e4ddff}header a{color:#b9a0ec!important}nav button{border-radius:2px;color:#a9a0c8}nav button.active{background:#231b42;color:#eee6ff;border-color:#8a70c066}button{border-radius:2px;background:#191535;border-color:#8a70c066}button:hover{border-color:#c8a7ff}button.primary{background:#c5b3e9;border-color:#d4c4f1;color:#1d1334}
 .wizard { max-width: 1100px; margin: 0 auto; }
 .steps { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
 .step { padding:6px 12px; border-radius:999px; border:1px solid var(--line);
