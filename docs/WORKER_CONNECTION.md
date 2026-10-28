@@ -3,7 +3,11 @@
 The GitHub Pages frontend sends authenticated imports to `animating-platform`.
 That Worker now calls the dedicated `animating-storyboard-vision` through the
 `STORYBOARD_VISION` service binding and its named `StoryboardService` entrypoint.
-The existing vision model, prompt and public Bearer-token authentication are retained.
+The vision model is Qwen (`@cf/qwen/qwen3.8-27b`), restored from the earlier
+platform scanner. Images are sent as `image_url` parts alongside the text prompt,
+with low reasoning effort and a 2,400-token completion limit. The interpreter reads
+Qwen's `choices[0].message.content` output and retains support for `response`/`result`
+text envelopes. The storyboard prompt and public Bearer-token authentication are retained.
 The private entrypoint invokes the same interpreter using its existing secret;
 no credentials are embedded in this repository or sent to the browser.
 
@@ -32,6 +36,8 @@ and is not used by this live route.
 
 `node tests/worker-vision-connection.mjs` uses mocked inference and D1 to verify routing,
 authentication, Japanese notes, missing timing, persistence and upstream errors.
+It also checks Qwen image inputs, chat-completion output, legacy text output,
+fenced JSON, and review-required errors for invalid or empty model responses.
 `GET https://animating-platform.josephsanjari1996.workers.dev/healthz` calls the bound
 vision health method without inference and reports the connected service/model.
 Public unauthenticated `POST /analyze` on vision must still return 401.

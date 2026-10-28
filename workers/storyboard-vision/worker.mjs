@@ -4,7 +4,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
  * POST /analyze {image_b64, template} -> {panels:[{bbox,number,description,notes,dialogue,duration,confidence}]}
  * Requires VISION_API_TOKEN secret. Returns review-required guesses, never final shots.
  */
-const MODEL='@cf/meta/llama-3.2-11b-vision-instruct';
+const MODEL='@cf/qwen/qwen3.8-27b';
 const LIMIT=3*1024*1024;
 const reply=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const prompt=`Inspect this Japanese animation storyboard (絵コンテ / e-konte) as an image, not as English OCR.
@@ -16,7 +16,7 @@ Return null for unreadable or missing numbers/durations and empty strings for mi
 Output ONLY JSON: {"panels":[{"bbox":{"x":0,"y":0,"w":0,"h":0},"number":null,"description":"","notes":"","dialogue":"","duration":null,"confidence":0.3}]}.
 Confidence is conservative 0 to 1. Each panel must have its own rectangle. No markdown.`;
 function parseJson(value){
- const raw=typeof value==='string'?value:String(value?.response??value?.result??'');
+ const raw=typeof value==='string'?value:String(value?.choices?.[0]?.message?.content??value?.response??value?.result??'');
  try{return JSON.parse(raw)}catch{}
  const start=raw.indexOf('{'),end=raw.lastIndexOf('}');
  if(start>=0&&end>start){try{return JSON.parse(raw.slice(start,end+1))}catch{}}
@@ -60,7 +60,13 @@ const visionWorker = {
   if(!png&&!jpeg&&!webp)return reply({error:'Only PNG, JPEG, and WebP are supported'},415);
   try{
    const dataUri='data:image/'+(png?'png':jpeg?'jpeg':'webp')+';base64,'+image;
-   const response=await env.AI.run(MODEL,{messages:[{role:'system',content:'You produce cautious JSON about Japanese storyboards. Do not hallucinate text.'},{role:'user',content:prompt}],image:dataUri});
+   const response=await env.AI.run(MODEL,{
+    messages:[
+     {role:'system',content:'You produce cautious JSON about Japanese storyboards. Do not hallucinate text.'},
+     {role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUri}}]}
+    ],
+    reasoning_effort:'low',max_completion_tokens:2400
+   });
    const parsed=parseJson(response);
    if(!parsed)return reply({error:'Vision model did not return structured JSON. Retry or use manual review.',review_required:true},502);
    const panels=normalize(parsed);
