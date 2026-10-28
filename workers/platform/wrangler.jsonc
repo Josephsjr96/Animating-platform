@@ -1,0 +1,9 @@
+{
+  "name": "animating-platform",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-15",
+  "d1_databases": [{"binding":"DB", "database_id":"46f5e209-97d9-495c-8fb2-07119bd1f018"}],
+  "ai": {"binding":"AI"},
+  "services": [{"binding":"STORYBOARD_VISION", "service":"animating-storyboard-vision", "entrypoint":"StoryboardService"}],
+  "observability": {"enabled":true}
+}
