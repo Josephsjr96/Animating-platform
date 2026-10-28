@@ -15,7 +15,7 @@
         if (!dark(x, y)) { x++; continue; }
         const start = x;
         while (x < width && dark(x, y)) x++;
-        if (x - start < minWidth || x - start > width * .92) continue;
+        if (x - start < minWidth) continue;
         const line = previous.find(l => Math.abs(l.x - start) <= 2 && Math.abs(l.right - x) <= 2);
         if (line) { line.bottom = y + 1; current.push(line); }
         else { const next = {x:start, right:x, y, bottom:y + 1}; lines.push(next); current.push(next); }
@@ -24,11 +24,14 @@
     }
     const frames = [];
     for (const top of lines) {
-      const bottom = lines.find(l => l.y >= top.bottom &&
-        Math.abs(l.x - top.x) < width * .03 && Math.abs(l.right - top.right) < width * .03);
-      if (!bottom) continue;
+      if (frames.some(b => top.y >= b.y && top.y < b.y + b.h && top.x >= b.x - 8 && top.right <= b.x + b.w + 8)) continue;
+      const alignment = Math.max(3, width * .008);
+      const candidates = lines.filter(l => l.y >= top.bottom &&
+        Math.abs(l.x - top.x) <= alignment && Math.abs(l.right - top.right) <= alignment);
+      for (const bottom of candidates) {
       const start = top.bottom, end = bottom.y;
-      if (end - start < 16) continue;
+      // A narrow gap separates neighboring frames; do not bridge across it.
+      if (end - start < 16) break;
       if ((end - start) > (top.right - top.x) * 2.5) continue;
       const border = (edge, side) => {
         const columns = [];
@@ -44,7 +47,14 @@
       const right = border(Math.min(top.right, bottom.right) - 1, 'right');
       if (left == null || right == null || right - left < minWidth) continue;
       const box = {x:left, y:start, w:right - left, h:end - start};
-      if (!frames.some(b => Math.abs(b.y - box.y) < 4 && Math.abs(b.x - box.x) < 4)) frames.push(box);
+      const overlaps = frames.some(b => {
+        const intersection = Math.max(0,Math.min(b.x+b.w,box.x+box.w)-Math.max(b.x,box.x)) *
+          Math.max(0,Math.min(b.y+b.h,box.y+box.h)-Math.max(b.y,box.y));
+        return intersection / Math.min(b.w*b.h,box.w*box.h) > .8;
+      });
+      if (!overlaps) frames.push(box);
+      break;
+      }
     }
     return frames.sort((a, b) => a.y - b.y || a.x - b.x);
   }

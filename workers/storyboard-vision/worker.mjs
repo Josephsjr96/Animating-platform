@@ -17,27 +17,38 @@ Leave description empty; the director writes the action. Keep notes concise and 
 Output ONLY JSON: {"panels":[{"bbox":{"x":0,"y":0,"w":0,"h":0},"number":null,"description":"","notes":"","dialogue":"","duration":null,"confidence":0.3}]}.
 Confidence is conservative 0 to 1. Each panel must have its own rectangle. No markdown.`;
 function parseJson(value){
- const content=value?.choices?.[0]?.message?.content??value?.response??value?.result??value;
+ let content=value?.choices?.[0]?.message?.content??value?.response??value?.result??value;
+ if(Array.isArray(content))content=content.filter(p=>p?.type==='text'||p?.type==='output_text').map(p=>p.text??'').join('');
  if(content&&typeof content==='object'&&!Array.isArray(content))return Array.isArray(content.panels)?content:null;
  const raw=typeof content==='string'?content:'';
- try{return JSON.parse(raw)}catch{}
+ const structured=j=>j&&typeof j==='object'&&!Array.isArray(j)&&Array.isArray(j.panels)?j:null;
+ try{return structured(JSON.parse(raw))}catch{}
  const start=raw.indexOf('{'),end=raw.lastIndexOf('}');
- if(start>=0&&end>start){try{return JSON.parse(raw.slice(start,end+1))}catch{}}
+ if(start>=0&&end>start){try{return structured(JSON.parse(raw.slice(start,end+1)))}catch{}}
  return null;
 }
 function normalize(value,geometry){
  const proposals=Array.isArray(value?.panels)?value.panels:[];
- const input=geometry?.frames?.length?geometry.frames.map((bbox,frame_index)=>{
+ const detected=geometry?.frames?.length?geometry.frames.map((bbox,frame_index)=>{
    const matches=proposals.filter(p=>p?.frame_index===frame_index);
    return {...(matches.length===1?matches[0]:{}),bbox,bbox_source:'detected_border',frame_index};
- }):proposals;
+ }):null;
+ const extras=detected&&Array.isArray(value?.additional_panels)?value.additional_panels:[];
+ const input=detected?[...detected,...extras.map(p=>({...p,bbox_source:'model_estimate'}))]:proposals;
+ const accepted=[];
  return input.slice(0,25).map(p=>{
    const b=p?.bbox||{},coords=['x','y','w','h'].map(k=>Number(b[k]));
    if(coords.some(n=>!Number.isFinite(n))||coords[0]<0||coords[1]<0||coords[2]<=0||coords[3]<=0)return null;
    const number=p.number==null?'':String(p.number).slice(0,60);
    const duration=Number(p.duration);
    if(geometry&&(coords[0]+coords[2]>geometry.width||coords[1]+coords[3]>geometry.height))return null;
-   return {bbox:{x:coords[0],y:coords[1],w:coords[2],h:coords[3]},bbox_source:geometry?.frames?.length?'detected_border':'model_estimate',
+   const bbox={x:coords[0],y:coords[1],w:coords[2],h:coords[3]};
+   if(p.bbox_source==='model_estimate'&&accepted.some(b=>{
+    const area=Math.max(0,Math.min(b.x+b.w,bbox.x+bbox.w)-Math.max(b.x,bbox.x))*Math.max(0,Math.min(b.y+b.h,bbox.y+bbox.h)-Math.max(b.y,bbox.y));
+    return area/Math.min(b.w*b.h,bbox.w*bbox.h)>.5;
+   }))return null;
+   accepted.push(bbox);
+   return {bbox,bbox_source:p.bbox_source==='detected_border'?'detected_border':'model_estimate',
     number,description:String(p.description??'').slice(0,800),
     notes:String(p.notes??'').slice(0,2000),dialogue:String(p.dialogue??'').slice(0,1000),
     duration:p.duration==null||p.duration===''||!Number.isFinite(duration)||duration<=0?null:duration,
@@ -46,19 +57,20 @@ function normalize(value,geometry){
 }
 function responseFormat(geometry){
  if(!geometry?.frames?.length)return {type:'json_object'};
+ const metadata={number:{type:['string','number','null']},description:{type:'string'},notes:{type:'string'},dialogue:{type:'string'},duration:{type:['number','null']},confidence:{type:'number'}};
  return {type:'json_schema',json_schema:{name:'storyboard_frames',strict:true,schema:{
-  type:'object',additionalProperties:false,required:['panels'],properties:{panels:{type:'array',items:{
+  type:'object',additionalProperties:false,required:['panels','additional_panels'],properties:{panels:{type:'array',items:{
    type:'object',additionalProperties:false,
    required:['frame_index','number','description','notes','dialogue','duration','confidence'],
-   properties:{frame_index:{type:'integer',enum:geometry.frames.map((_,i)=>i)},number:{type:['string','number','null']},
-    description:{type:'string'},notes:{type:'string'},dialogue:{type:'string'},duration:{type:['number','null']},confidence:{type:'number'}}
-  }}}
+   properties:{frame_index:{type:'integer',enum:geometry.frames.map((_,i)=>i)},...metadata}
+  }},additional_panels:{type:'array',items:{type:'object',additionalProperties:false,
+   required:['bbox',...Object.keys(metadata)],properties:{...metadata,bbox:{type:'object',additionalProperties:false,required:['x','y','w','h'],properties:{x:{type:'integer'},y:{type:'integer'},w:{type:'integer'},h:{type:'integer'}}}}}}}
  }}};
 }
 const visionWorker = {
  async fetch(request,env){
   const url=new URL(request.url);
-  if(request.method==='GET'&&url.pathname==='/healthz')return reply({ok:true,service:'animating-storyboard-vision',model:MODEL,modelConfigured:Boolean(env.AI),authenticationConfigured:Boolean(env.VISION_API_TOKEN)});
+  if(request.method==='GET'&&url.pathname==='/healthz')return reply({ok:true,service:'animating-storyboard-vision',revision:'storyboard-review-recovery-v1',model:MODEL,modelConfigured:Boolean(env.AI),authenticationConfigured:Boolean(env.VISION_API_TOKEN)});
   if(url.pathname!=='/analyze')return reply({error:'Not found'},404);
   if(request.method!=='POST')return reply({error:'Method not allowed'},405);
   if(!env.VISION_API_TOKEN)return reply({error:'Service authentication is not configured'},503);
@@ -85,20 +97,21 @@ const visionWorker = {
   try{
    const dataUri='data:image/'+(png?'png':jpeg?'jpeg':'webp')+';base64,'+image;
    const geometryPrompt=geometry?`\nOriginal image dimensions: ${geometry.width} by ${geometry.height} pixels.`+(geometry.frames.length
-    ?`\nThese artwork rectangles were detected from image borders: ${JSON.stringify(geometry.frames.map((bbox,frame_index)=>({frame_index,bbox})))}. Do not invent, merge, resize or add rectangles. Return one panels item per listed frame with its integer frame_index. Read only metadata aligned with that frame. Leave uncertain metadata blank.`
+    ?`\nThese artwork rectangles were detected from image borders: ${JSON.stringify(geometry.frames.map((bbox,frame_index)=>({frame_index,bbox})))}. Never merge or resize these rectangles. Return one panels item per listed frame with its integer frame_index. Read only metadata aligned with that frame. Leave uncertain metadata blank. Independently inspect the WHOLE page for artwork frames missing from this list. Put only clearly visible additional drawing rectangles in additional_panels with their original pixel bbox and metadata. Do not repeat detected frames or include text columns. Return additional_panels:[] if none are missing. These extra crops are estimates requiring manual review.`
     :'\nNo reliable frame borders were detected. Return conservative pixel coordinates within these dimensions; crops require manual verification.') : '';
    const scanPrompt=geometry?.frames?.length?prompt.replace(/^Output ONLY JSON:.*$/m,
-    'Output ONLY JSON: {"panels":[{"frame_index":0,"number":null,"description":"","notes":"","dialogue":"","duration":null,"confidence":0.3}]}. frame_index is required and must identify the supplied rectangle; do not return bbox coordinates.') : prompt;
+    'Output ONLY JSON: {"panels":[{"frame_index":0,"number":null,"description":"","notes":"","dialogue":"","duration":null,"confidence":0.3}],"additional_panels":[]}. frame_index identifies a supplied rectangle. Additional panels use bbox:{x,y,w,h} instead of frame_index, with the same metadata fields.') : prompt;
    const messages=[
      {role:'system',content:'You produce cautious JSON about Japanese storyboards. Do not hallucinate text.'},
      {role:'user',content:[{type:'text',text:scanPrompt+geometryPrompt},{type:'image_url',image_url:{url:dataUri}}]}
    ];
    let parsed=null,finishReason=null;
    for(const [attempt,budget] of [4096,8192].entries()){
-    const response=await env.AI.run(MODEL,{
+    let response;
+    try{response=await env.AI.run(MODEL,{
      messages,reasoning_effort:'low',max_completion_tokens:budget,
      response_format:responseFormat(geometry)
-    });
+    });}catch{console.warn(JSON.stringify({event:'storyboard_inference_failure',model:MODEL,attempt:attempt+1}));continue;}
     finishReason=response?.choices?.[0]?.finish_reason??null;
     parsed=finishReason==='length'?null:parseJson(response);
     if(parsed)break;
@@ -106,10 +119,14 @@ const visionWorker = {
     console.warn(JSON.stringify({event:'storyboard_json_failure',model:MODEL,attempt:attempt+1,
      finish_reason:finishReason,completion_tokens:response?.usage?.completion_tokens??null}));
    }
+   if(!parsed&&geometry?.frames?.length)return reply({panels:normalize({panels:[]},geometry),panel_count:geometry.frames.length,
+    source:'detected-borders',needs_review:true,model:MODEL,metadata_status:'unavailable',
+    warning:'Frame borders were detected, but the model could not read their metadata. Review every crop and enter cut numbers and durations before importing.'});
    if(!parsed)return reply({error:finishReason==='length'
     ?'Storyboard scan was cut short after retrying. Try a page with fewer panels.'
     :'Vision returned unreadable scan results after retrying. Retry this page or use manual review.',
     review_required:true},502);
+   if(geometry?.frames?.length+(Array.isArray(parsed.additional_panels)?parsed.additional_panels.length:0)>25)return reply({error:'More than 25 drawings found. Split the page before scanning.',review_required:true},422);
    const panels=normalize(parsed,geometry);
    if(!panels.length)return reply({error:'No usable artwork boxes found; manual cropping required.',review_required:true},422);
    return reply({panels,panel_count:panels.length,source:'cloudflare-workers-ai',needs_review:true,model:MODEL});

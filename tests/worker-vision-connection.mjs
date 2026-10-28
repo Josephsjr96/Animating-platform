@@ -63,6 +63,36 @@ const invalidGeometry={...geometry,frames:[{x:480,y:0,w:30,h:50}]};
 assert.equal((await bordered.analyze(image,invalidGeometry)).status,400);
 const missingMetadata=new vision.StoryboardService({},{...env,AI:{async run(){return {response:'{"panels":[]}'}}}});
 const blanks=await (await missingMetadata.analyze(image,geometry)).json();assert.equal(blanks.panels.length,2);assert.equal(blanks.panels[0].number,'');assert.equal(blanks.panels[0].confidence,0);
+const seven={width:490,height:743,frames:Array.from({length:7},(_,i)=>({x:49,y:10+i*100,w:261,h:80}))};
+for(const mode of ['malformed','truncated','wrong-shape','unavailable']){
+ let attempts=0;
+ const recoveringFrames=new vision.StoryboardService({},{...env,AI:{async run(){
+  attempts++;
+  if(mode==='unavailable')throw new Error('inference unavailable');
+  return {choices:[{finish_reason:mode==='truncated'?'length':'stop',message:{content:mode==='wrong-shape'?'[]':'{"panels":['}}]};
+ }}});
+ const response=await recoveringFrames.analyze(image,seven);assert.equal(response.status,200);
+ const result=await response.json();assert.equal(attempts,2);assert.equal(result.metadata_status,'unavailable');
+ assert.match(result.warning,/enter cut numbers and durations/);assert.equal(result.panels.length,7);
+ assert.deepEqual(result.panels.map(p=>p.bbox),seven.frames);
+ assert.ok(result.panels.every(p=>p.number===''&&p.duration===null&&p.confidence===0&&p.notes===''));
+ const form=new FormData();form.append('file',new File([Buffer.from(image,'base64')],'seven.png',{type:'image/png'}));form.append('geometry',JSON.stringify(seven));
+ const routed=await platform.fetch(new Request('https://platform/api/import/scan',{method:'POST',headers:{'X-Workspace-Key':platformEnv.WORKSPACE_ACCESS_KEY},body:form}),{...platformEnv,STORYBOARD_VISION:recoveringFrames});
+ const savedResult=await routed.json();assert.equal(routed.status,200);assert.equal(savedResult.metadata_status,'unavailable');assert.equal(savedResult.panels.length,7);assert.match(savedResult.warning,/enter cut numbers/);
+}
+const sixMetadata=new vision.StoryboardService({},{...env,AI:{async run(){return {response:{panels:seven.frames.slice(0,6).map((bbox,frame_index)=>({...panel,bbox,frame_index}))}};}}});
+const sevenResult=await (await sixMetadata.analyze(image,seven)).json();assert.equal(sevenResult.panels.length,7);assert.equal(sevenResult.panels[6].number,'');assert.equal(sevenResult.panels[6].duration,null);
+const sixFrames={...seven,frames:seven.frames.slice(0,6)};
+const discovered=new vision.StoryboardService({},{...env,AI:{async run(){return {response:{panels:sixFrames.frames.map((bbox,frame_index)=>({...panel,bbox,frame_index})),additional_panels:[
+ {...panel,bbox:seven.frames[6],number:'C007'},
+ {...panel,bbox:seven.frames[0]}, // Duplicate detected frame must be rejected.
+ {...panel,bbox:{x:480,y:700,w:100,h:100}} // Off-page rectangle must be rejected.
+]}};}}});
+const discoveredResult=await (await discovered.analyze(image,sixFrames)).json();assert.equal(discoveredResult.panels.length,7);
+assert.deepEqual(discoveredResult.panels.slice(0,6).map(p=>p.bbox),sixFrames.frames);
+assert.equal(discoveredResult.panels[6].bbox_source,'model_estimate');assert.equal(discoveredResult.panels[6].number,'C007');
+const textParts=new vision.StoryboardService({},{...env,AI:{async run(){return {choices:[{message:{content:[{type:'text',text:JSON.stringify({panels:[panel]})}]}}]};}}});
+assert.equal((await textParts.analyze(image)).status,200);
 // Verify geometry is forwarded by the platform route, with provenance intact.
 const form=new FormData();form.append('file',new File([Buffer.from(image,'base64')],'page.png',{type:'image/png'}));form.append('geometry',JSON.stringify(geometry));
 const withGeometry=await platform.fetch(new Request('https://platform/api/import/scan',{method:'POST',headers:{'X-Workspace-Key':platformEnv.WORKSPACE_ACCESS_KEY},body:form}),{...platformEnv,STORYBOARD_VISION:bordered});

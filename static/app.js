@@ -125,7 +125,9 @@ const Wizard = {
             <button class="link" id="selectNone">None</button> ·
             <button class="link" id="toggleLowConf">Show only low-confidence</button>
           </p>
+          <p id="scanWarning" role="status" hidden></p>
           <div class="review-list" id="reviewList"></div>
+          <p id="reviewValidation" role="alert" hidden></p>
           <div class="actions">
             <button class="ghost" id="backBtn">← Back</button>
             <button class="primary" id="commitBtn">Import to shot list →</button>
@@ -246,6 +248,22 @@ const Wizard = {
     /* ---- Commit ---- */
     $('#commitBtn').addEventListener('click', async () => {
       const btn = $('#commitBtn');
+      const invalid = this.state.panels.filter(p => p.include &&
+        (!String(p.number ?? '').trim() || !Number.isFinite(Number(p.duration)) || !(Number(p.duration) > 0)));
+      const validation = $('#reviewValidation');
+      if (invalid.length) {
+        this.state.showLowOnly = false;
+        this._renderReview($('#reviewList'), $('#panelCount'));
+        validation.textContent = 'Before importing, enter a cut number and a duration greater than zero for each included drawing. Check drawings: ' + invalid.map(p => p._idx + 1).join(', ') + '. You can uncheck drawings to skip them.';
+        validation.hidden = false;
+        const first = invalid[0];
+        const role = !String(first.number ?? '').trim() ? 'number' : 'duration';
+        const input = $('#reviewList').querySelector(`[data-idx="${first._idx}"] [data-role="${role}"]`);
+        input?.focus();
+        input?.scrollIntoView({block:'center'});
+        return;
+      }
+      validation.hidden = true;
       btn.disabled = true;
       btn.textContent = 'Importing…';
 
@@ -261,7 +279,6 @@ const Wizard = {
           }))
         };
 
-        if (payload.panels.some(p => p.include && (!String(p.number || '').trim() || !(Number(p.duration) > 0)))) throw new Error('Review cut numbers and durations before importing.');
         const reviewResult = await API.review(this.state.result.import_id, payload);
         if (!reviewResult.ok) throw new Error(reviewResult.error || 'Review failed');
 
@@ -305,6 +322,8 @@ const Wizard = {
   },
 
   _renderReview(list, counter) {
+    const warning = list.closest('#importWizard')?.querySelector('#scanWarning');
+    if(warning){warning.textContent=this.state.result?.warning||'';warning.hidden=!warning.textContent;}
     const panels = this.state.panels.filter(p =>
       !this.state.showLowOnly || (p.confidence ?? 1) < 0.6
     );
@@ -327,9 +346,9 @@ const Wizard = {
         </div>
         <div class="fields">
           <div class="row">
-            <input value="${esc(p.number || '')}" data-role="number" placeholder="SH010">
-            <input type="number" min="1" max="120" value="${p.duration || 4}"
-                   data-role="duration" placeholder="sec">
+            <input value="${esc(p.number ?? '')}" data-role="number" placeholder="Cut number" aria-label="Cut number for drawing ${p._idx + 1}">
+            <input type="number" min="0.001" step="any" value="${esc(p.duration ?? '')}"
+                   data-role="duration" placeholder="Seconds" aria-label="Duration in seconds for drawing ${p._idx + 1}">
             <span class="conf ${confClass(p.confidence)}">
               conf ${Math.round((p.confidence ?? 0) * 100)}%
             </span>
@@ -354,10 +373,12 @@ const Wizard = {
             panel.include = inp.checked;
             card.classList.toggle('skipped', !panel.include);
           } else if (role === 'duration') {
-            panel.duration = +inp.value || 4;
+            panel.duration = inp.value === '' ? null : Number(inp.value);
           } else {
             panel[role] = inp.value;
           }
+          card.querySelector('[data-role="number"]').setAttribute('aria-invalid', String(panel.include && !String(panel.number ?? '').trim()));
+          card.querySelector('[data-role="duration"]').setAttribute('aria-invalid', String(panel.include && (!Number.isFinite(Number(panel.duration)) || !(Number(panel.duration) > 0))));
         };
         inp.addEventListener('input', handler);
         inp.addEventListener('change', handler);
