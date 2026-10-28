@@ -9,4 +9,10 @@ dialog.shot-thumbnail-editor.enlarged{width:calc(100vw - 32px);height:94dvh}
 .thumbnail-editor-viewport canvas{display:block;height:auto;max-width:100%;touch-action:none}
 .shot-thumbnail-editor .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 #shotTable .thumb:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.thumbnail-size-control{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.thumbnail-size-control input{width:110px;padding:0;margin:0;accent-color:var(--accent)}
+.thumbnail-size-control output{min-width:40px;font-variant-numeric:tabular-nums}
+#shotTable .thumbnail-resize-handle{position:absolute;right:0;bottom:0;width:20px;height:20px;border-radius:5px 0 5px 0;background:linear-gradient(135deg,transparent 45%,var(--accent) 46%,var(--accent) 54%,transparent 55%,transparent 65%,var(--accent) 66%,var(--accent) 74%,transparent 75%);cursor:nwse-resize;touch-action:none}
+#shotTable .thumbnail-resize-handle:focus-visible{outline:2px solid var(--accent)}
+#shotTable .thumb:has(.thumbnail-resize-handle):not(:has(img))::after{content:'+ Thumbnail';font-size:10px;color:#8da4b1}
 @media(max-width:600px){dialog.shot-thumbnail-editor{padding:16px}.shot-thumbnail-editor .crop-coordinates{grid-template-columns:repeat(2,minmax(0,1fr))}}

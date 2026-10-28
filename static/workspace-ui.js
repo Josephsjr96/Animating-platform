@@ -3,6 +3,19 @@
   'use strict';
   const original = {render, renderShotList, renderCalendar, renderImport, openCellEditor, calendarEvents};
   const ui = {search:'', filter:'all', compact:false, expanded:new Set(), selected:new Set(), calendarMode:'month', queue:[], scanning:false, orderLocked:true, timelineGroup:'stage'};
+  const thumbnailSizeKey='animation-thumbnail-sizes-v1';
+  let thumbnailSizes={width:110,shots:{}};
+  try{
+    const saved=JSON.parse(localStorage.getItem(thumbnailSizeKey)||'null');
+    if(saved&&Number.isFinite(saved.width)&&saved.width>=80&&saved.width<=480&&saved.shots&&typeof saved.shots==='object')thumbnailSizes=saved;
+  }catch{}
+  function saveThumbnailSizes(){try{localStorage.setItem(thumbnailSizeKey,JSON.stringify(thumbnailSizes));}catch{}}
+  function sizeThumbnail(thumb,id){
+    const custom=thumbnailSizes.shots[id];
+    const width=Number.isFinite(custom)?Math.max(80,Math.min(480,custom)):thumbnailSizes.width;
+    thumb.style.width=width+'px';thumb.style.height=Math.round(width*(ui.compact&&!Number.isFinite(custom)?47/110:73/110))+'px';
+    const handle=thumb.querySelector('.thumbnail-resize-handle');if(handle)handle.setAttribute('aria-valuenow',String(width));
+  }
   function thumbnailSource(value) {
     if (typeof value !== 'string') return '';
     const source = value.trim();
@@ -215,6 +228,15 @@
     const controls=document.createElement('div');controls.className='shot-controls';
     controls.innerHTML=`<label class="shot-search"><span aria-hidden="true">⌕</span><input aria-label="Search shots" placeholder="Search shots, dialogue, or notes…" value="${escapeAttr(ui.search)}"></label><select aria-label="Filter shots by status"><option value="all">All statuses</option><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="done">Done</option><option value="published">Published</option></select><div class="spacer"></div><button class="density-button" aria-pressed="${ui.compact}">☷ &nbsp; ${ui.compact?'Comfortable rows':'Compact rows'}</button>`;
     toolbar.after(controls);
+    const thumbnailSize=document.createElement('label');thumbnailSize.className='thumbnail-size-control';
+    thumbnailSize.innerHTML='<span>Thumbnail size</span><input type="range" min="80" max="480" step="10" aria-label="Thumbnail size"><output></output>';
+    const sizeInput=thumbnailSize.querySelector('input'),sizeOutput=thumbnailSize.querySelector('output');
+    sizeInput.value=thumbnailSizes.width;sizeOutput.textContent=thumbnailSizes.width+' px';
+    sizeInput.oninput=()=>{
+      thumbnailSizes={width:Number(sizeInput.value),shots:{}};sizeOutput.textContent=thumbnailSizes.width+' px';
+      wrap.querySelectorAll('.thumb[data-shot-id]').forEach(thumb=>sizeThumbnail(thumb,thumb.dataset.shotId));saveThumbnailSizes();
+    };
+    controls.querySelector('.spacer').before(thumbnailSize);
     const batch=document.createElement('div');batch.className='batch-bar';batch.hidden=true;batch.innerHTML='<strong data-selected></strong><span>Set all stage cells to</span><button data-bulk="not_started">Not started</button><button data-bulk="in_progress">In progress</button><button data-bulk="done">Done</button><button data-bulk="published">Published</button><button data-clear>Clear selection</button>';controls.after(batch);
     const shotRows=[];const rows=[...wrap.querySelectorAll('#shotTable tbody > tr')];
     let group=null;
@@ -241,6 +263,23 @@
         const hasThumbnail=!!thumbnailSource(shot.thumbnail||shot.thumbnail_b64);
         const openThumbnail=()=>hasThumbnail?ShotThumbnailEditor.open({shot,source:thumbnailSource(shot.thumbnail_source||shot.thumbnail||shot.thumbnail_b64),onReplace:()=>uploadThumbnail(shot),onSave:async(data,crop,source)=>{shot.thumbnail=data;shot.thumbnail_source=source;shot.thumbnail_crop=crop;const saved=await saveState();render();toast(saved?`Thumbnail saved for ${shot.number}.`:'Thumbnail saved locally. Cloud sync is pending.');}}):uploadThumbnail(shot);
         thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`${hasThumbnail?'Edit':'Upload'} thumbnail for ${shot.number}`);thumb.title=hasThumbnail?'Click to crop or enlarge':'Upload a thumbnail';thumb.onclick=openThumbnail;thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openThumbnail();}};
+        thumb.dataset.shotId=shot.id;
+        const resize=document.createElement('span');resize.className='thumbnail-resize-handle';resize.tabIndex=0;
+        resize.setAttribute('role','slider');resize.setAttribute('aria-label',`Resize thumbnail for ${shot.number}`);resize.setAttribute('aria-valuemin','80');resize.setAttribute('aria-valuemax','480');resize.setAttribute('aria-orientation','horizontal');resize.title='Drag to resize thumbnail and row. Use arrow keys for small adjustments.';
+        thumb.append(resize);sizeThumbnail(thumb,shot.id);
+        let resizing;
+        const setWidth=width=>{thumbnailSizes.shots[shot.id]=Math.max(80,Math.min(480,Math.round(width)));sizeThumbnail(thumb,shot.id);};
+        resize.onclick=e=>e.stopPropagation();
+        resize.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();e.stopPropagation();resizing={x:e.clientX,width:thumb.getBoundingClientRect().width};resize.setPointerCapture(e.pointerId);};
+        resize.onpointermove=e=>{if(!resizing)return;e.preventDefault();e.stopPropagation();setWidth(resizing.width+e.clientX-resizing.x);};
+        resize.onpointerup=resize.onpointercancel=()=>{if(resizing){resizing=null;saveThumbnailSizes();}};
+        resize.onkeydown=e=>{
+          e.stopPropagation();
+          if(['ArrowRight','ArrowUp','ArrowLeft','ArrowDown','Home','End'].includes(e.key)){
+            e.preventDefault();const current=Number(resize.getAttribute('aria-valuenow'));
+            setWidth(e.key==='Home'?80:e.key==='End'?480:current+(['ArrowRight','ArrowUp'].includes(e.key)?10:-10));saveThumbnailSizes();
+          }
+        };
         const dialogue=row.querySelector('[data-field=dialogue]');const text=document.createElement('textarea');for(const a of dialogue.attributes)if(a.name!=='value')text.setAttribute(a.name,a.value);text.value=shot.dialogue||'';text.placeholder='Add dialogue…';text.setAttribute('aria-label',`Dialogue for ${shot.number}`);text.onchange=()=>{shot.dialogue=text.value;saveState();};dialogue.replaceWith(text);
         row.querySelectorAll('[data-field]').forEach(input=>input.setAttribute('aria-label',`${input.dataset.field} for ${shot.number}`));
         const duration=row.querySelector('[data-field=duration]');duration.min='0.1';duration.step='0.1';duration.onchange=()=>{if(Number(duration.value)>0){shot.duration=Number(duration.value);saveState();render();}else{duration.value=shot.duration;toast('Duration must be greater than zero.');}};
