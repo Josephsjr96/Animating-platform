@@ -1,0 +1,12 @@
+dialog.shot-thumbnail-editor{width:900px;max-width:calc(100vw - 32px);max-height:94dvh;overflow:auto;box-sizing:border-box}
+dialog.shot-thumbnail-editor.enlarged{width:calc(100vw - 32px);height:94dvh}
+.thumbnail-editor-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.thumbnail-editor-header h3{margin:0;overflow-wrap:anywhere}
+.thumbnail-editor-header button{flex-shrink:0}
+.thumbnail-editor-tools{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.thumbnail-editor-tools [aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.thumbnail-editor-viewport{display:flex;align-items:center;justify-content:center;min-height:100px;background:#080f16;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.thumbnail-editor-viewport canvas{display:block;height:auto;max-width:100%;touch-action:none}
+.shot-thumbnail-editor .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+#shotTable .thumb:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:600px){dialog.shot-thumbnail-editor{padding:16px}.shot-thumbnail-editor .crop-coordinates{grid-template-columns:repeat(2,minmax(0,1fr))}}

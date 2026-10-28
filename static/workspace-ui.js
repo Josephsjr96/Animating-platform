@@ -196,7 +196,7 @@
       const reader=new FileReader();reader.onload=()=>{
         const image=new Image();image.onload=()=>{
           const scale=Math.min(1,960/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
-          shot.thumbnail=canvas.toDataURL('image/png');saveState();render();toast(`Thumbnail added to ${shot.number}.`);
+          shot.thumbnail=canvas.toDataURL('image/png');delete shot.thumbnail_source;delete shot.thumbnail_crop;saveState();render();toast(`Thumbnail added to ${shot.number}.`);
         };image.onerror=()=>toast('This image could not be opened.');image.src=reader.result;
       };reader.readAsDataURL(selected);
     };file.click();
@@ -238,7 +238,9 @@
         }
         const thumb=row.querySelector('.thumb');
         showThumbnail(thumb,shot.thumbnail||shot.thumbnail_b64,`Storyboard thumbnail for ${shot.number}`);
-        thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`Upload thumbnail for ${shot.number}`);thumb.onclick=()=>uploadThumbnail(shot);thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();uploadThumbnail(shot);}};
+        const hasThumbnail=!!thumbnailSource(shot.thumbnail||shot.thumbnail_b64);
+        const openThumbnail=()=>hasThumbnail?ShotThumbnailEditor.open({shot,source:thumbnailSource(shot.thumbnail_source||shot.thumbnail||shot.thumbnail_b64),onReplace:()=>uploadThumbnail(shot),onSave:async(data,crop,source)=>{shot.thumbnail=data;shot.thumbnail_source=source;shot.thumbnail_crop=crop;const saved=await saveState();render();toast(saved?`Thumbnail saved for ${shot.number}.`:'Thumbnail saved locally. Cloud sync is pending.');}}):uploadThumbnail(shot);
+        thumb.tabIndex=0;thumb.setAttribute('role','button');thumb.setAttribute('aria-label',`${hasThumbnail?'Edit':'Upload'} thumbnail for ${shot.number}`);thumb.title=hasThumbnail?'Click to crop or enlarge':'Upload a thumbnail';thumb.onclick=openThumbnail;thumb.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openThumbnail();}};
         const dialogue=row.querySelector('[data-field=dialogue]');const text=document.createElement('textarea');for(const a of dialogue.attributes)if(a.name!=='value')text.setAttribute(a.name,a.value);text.value=shot.dialogue||'';text.placeholder='Add dialogue…';text.setAttribute('aria-label',`Dialogue for ${shot.number}`);text.onchange=()=>{shot.dialogue=text.value;saveState();};dialogue.replaceWith(text);
         row.querySelectorAll('[data-field]').forEach(input=>input.setAttribute('aria-label',`${input.dataset.field} for ${shot.number}`));
         const duration=row.querySelector('[data-field=duration]');duration.min='0.1';duration.step='0.1';duration.onchange=()=>{if(Number(duration.value)>0){shot.duration=Number(duration.value);saveState();render();}else{duration.value=shot.duration;toast('Duration must be greater than zero.');}};
