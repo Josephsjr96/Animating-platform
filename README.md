@@ -38,3 +38,6 @@ python server/app.py
 3. Contour + rectangle filter → detects panels
 4. OCR per panel (cut#/sec/dialogue) → structured JSON
 5. Optional: forwarded to your Cloudflare agent for heavy vision
+## Local grouped storyboard shots
+
+Grouped-shot import, drawing galleries and draft-file restoration are available locally. See [testing instructions and limitations](docs/LOCAL_GROUPED_SHOTS_2026-10-28.md).
