@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   function open({shot,source,onSave,onReplace}) {
-    if(document.querySelector('.shot-thumbnail-editor'))return;
+    if(document.querySelector('.shot-thumbnail-editor[open]'))return;
     const dialog=document.createElement('dialog');
     dialog.className='shot-thumbnail-editor';
     dialog.setAttribute('aria-labelledby','shotThumbnailTitle');
@@ -16,6 +16,9 @@
     const resize=new ResizeObserver(fit);resize.observe(viewport);
     window.addEventListener('resize',fit);
     let box,drag,mode='draw',ready=false,busy=false;
+    let cleaned=false;
+    function cleanup(){if(cleaned)return;cleaned=true;resize.disconnect();window.removeEventListener('resize',fit);image.onload=image.onerror=null;image.src='';dialog.remove();}
+    function close(){dialog.close();cleanup();}
     const valid=b=>b&&['x','y','w','h'].every(k=>Number.isInteger(b[k]))&&b.x>=0&&b.y>=0&&b.w>0&&b.h>0&&b.x+b.w<=image.naturalWidth&&b.y+b.h<=image.naturalHeight;
     const setMode=value=>{mode=value;canvas.style.cursor=value==='draw'?'crosshair':'move';dialog.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===value)));};
     function draw(updateInputs=true) {
@@ -47,8 +50,8 @@
     };
     dialog.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
     dialog.querySelector('[data-reset]').onclick=()=>{if(ready){box={x:0,y:0,w:image.naturalWidth,h:image.naturalHeight};draw();setMode('draw');}};
-    dialog.querySelector('[data-replace]').onclick=()=>{dialog.close();onReplace();};
-    dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+    dialog.querySelector('[data-replace]').onclick=()=>{close();onReplace();};
+    dialog.querySelector('[data-cancel]').onclick=close;
     const point=e=>{const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(image.naturalWidth,Math.round((e.clientX-r.left)*image.naturalWidth/r.width))),y:Math.max(0,Math.min(image.naturalHeight,Math.round((e.clientY-r.top)*image.naturalHeight/r.height)))};};
     canvas.onpointerdown=e=>{
       if(!ready||e.button!==0)return;
@@ -72,7 +75,7 @@
         output.width=Math.max(1,Math.round(box.w*scale));output.height=Math.max(1,Math.round(box.h*scale));
         output.getContext('2d').drawImage(image,box.x,box.y,box.w,box.h,0,0,output.width,output.height);
         const data=output.toDataURL('image/png');busy=true;save.disabled=true;dialog.inert=true;
-        await onSave(data,{...box},source);dialog.close();
+        await onSave(data,{...box},source);close();
       }catch{status.textContent='This image could not be saved. Use Replace image to upload a local copy.';}
       finally{busy=false;dialog.inert=false;save.disabled=!ready;}
     };
@@ -85,7 +88,7 @@
     };
     image.onerror=()=>{status.textContent='This image could not be opened for cropping. Use Replace image to upload a local copy.';};
     dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});
-    dialog.addEventListener('close',()=>{resize.disconnect();window.removeEventListener('resize',fit);image.onload=image.onerror=null;image.src='';dialog.remove();},{once:true});
+    dialog.addEventListener('close',cleanup,{once:true});
     document.body.append(dialog);dialog.showModal();
     if(/^https?:/i.test(source))image.crossOrigin='anonymous';
     image.src=source;

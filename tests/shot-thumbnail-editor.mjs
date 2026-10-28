@@ -29,6 +29,11 @@ try{
  await page.getByLabel('Width (px)',{exact:true}).fill('40');
  await page.getByLabel('Left (px)',{exact:true}).fill('90');
  assert.equal(await page.getByRole('button',{name:'Save thumbnail',exact:true}).isDisabled(),true);
+ await page.evaluate(()=>{
+  document.querySelector('.shot-thumbnail-editor [data-cancel]').click();
+  document.querySelector('#shotTable .thumb').click();
+ });
+ await page.waitForFunction(()=>document.querySelector('.shot-thumbnail-editor')?.open&&!document.querySelector('.shot-thumbnail-editor [type=submit]').disabled);
  await page.getByRole('button',{name:'Cancel',exact:true}).click();
  assert.equal(saves,0);assert.equal(workspace.shots[0].thumbnail,source);
  await thumb().focus();await page.keyboard.press('Enter');
