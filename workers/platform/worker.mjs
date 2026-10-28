@@ -2,7 +2,7 @@ const ORIGIN="https://josephsjr96.github.io";
 function out(value,status=200,origin=''){const headers={'content-type':'application/json','cache-control':'no-store'};if(origin===ORIGIN)Object.assign(headers,{'access-control-allow-origin':ORIGIN,'access-control-allow-methods':'GET,POST,OPTIONS','access-control-allow-headers':'Content-Type,X-Workspace-Key','vary':'Origin'});return new Response(JSON.stringify(value),{status,headers})}
 async function get(db){let row=await db.prepare('SELECT payload FROM workspace WHERE id=1').first();return row?JSON.parse(row.payload):null}
 async function save(db,ws){await db.prepare('INSERT INTO workspace(id,payload,updated_at) VALUES(1,?,CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=CURRENT_TIMESTAMP').bind(JSON.stringify(ws)).run()}
-function extract(r){let value=r?.choices?.[0]?.message?.content??r?.response??r?.result??r;let s=typeof value==='string'?value:JSON.stringify(value);let j;try{j=JSON.parse(s)}catch{try{j=JSON.parse(s.slice(s.indexOf('{'),s.lastIndexOf('}')+1))}catch{return []}}return (Array.isArray(j?.panels)?j.panels:[]).slice(0,25).map(p=>{let b=p?.bbox||{},v=['x','y','w','h'].map(k=>Number(b[k]));if(v.some(x=>!Number.isFinite(x))||v[0]<0||v[1]<0||v[2]<=0||v[3]<=0)return null;return {bbox:{x:v[0],y:v[1],w:v[2],h:v[3]},number:String(p.number??'').slice(0,60),description:String(p.description??'').slice(0,800),notes:String(p.notes??'').slice(0,2000),dialogue:String(p.dialogue??'').slice(0,1000),duration:Number(p.duration)>0?Number(p.duration):null,confidence:Math.max(0,Math.min(1,Number(p.confidence)||0)),needs_review:true,thumbnail_b64:''}}).filter(Boolean).sort((a,b)=>a.bbox.y-b.bbox.y)}
+function extract(r){let value=r?.choices?.[0]?.message?.content??r?.response??r?.result??r;let s=typeof value==='string'?value:JSON.stringify(value);let j;try{j=JSON.parse(s)}catch{try{j=JSON.parse(s.slice(s.indexOf('{'),s.lastIndexOf('}')+1))}catch{return []}}return (Array.isArray(j?.panels)?j.panels:[]).slice(0,25).map(p=>{let b=p?.bbox||{},v=['x','y','w','h'].map(k=>Number(b[k]));if(v.some(x=>!Number.isFinite(x))||v[0]<0||v[1]<0||v[2]<=0||v[3]<=0)return null;return {bbox:{x:v[0],y:v[1],w:v[2],h:v[3]},bbox_source:p.bbox_source==='detected_border'?'detected_border':'model_estimate',number:String(p.number??'').slice(0,60),description:String(p.description??'').slice(0,800),notes:String(p.notes??'').slice(0,2000),dialogue:String(p.dialogue??'').slice(0,1000),duration:Number(p.duration)>0?Number(p.duration):null,confidence:Math.max(0,Math.min(1,Number(p.confidence)||0)),needs_review:true,thumbnail_b64:''}}).filter(Boolean).sort((a,b)=>a.bbox.y-b.bbox.y)}
 export default {async fetch(req,env){const path=new URL(req.url).pathname,origin=req.headers.get('origin')||'';
 if(path==='/healthz'&&req.method==='GET'){
 let vision=null;try{vision=await env.STORYBOARD_VISION?.health()}catch{vision={ok:false}}
@@ -19,7 +19,10 @@ let bytes=new Uint8Array(await file.arrayBuffer());let png=bytes[0]===137&&bytes
 let b='';for(let i=0;i<bytes.length;i+=16384)b+=String.fromCharCode(...bytes.subarray(i,i+16384));let result;
 if(!env.STORYBOARD_VISION)return out({error:'Storyboard vision service is not connected'},503,origin);
 try{
-const response=await env.STORYBOARD_VISION.analyze(btoa(b));
+let geometry;
+const geometryField=form.get('geometry');
+if(geometryField!=null){if(typeof geometryField!=='string'||geometryField.length>12000)return out({error:'Invalid image geometry'},400,origin);try{geometry=JSON.parse(geometryField);if(!geometry||typeof geometry!=='object')throw new Error()}catch{return out({error:'Invalid image geometry'},400,origin)}}
+const response=await env.STORYBOARD_VISION.analyze(btoa(b),geometry);
 result=await response.json();
 if(!response.ok)return out({error:result.error||'Storyboard vision failed',review_required:true},response.status,origin);
 }catch(e){console.error('Storyboard vision service failed:',e?.message||String(e));return out({error:'Storyboard vision service unavailable'},502,origin)}

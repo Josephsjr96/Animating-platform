@@ -37,6 +37,7 @@
       el.textContent = storageError || 'Review saved locally. Grouping has not been imported to the cloud.';
     });
   }
+  document.addEventListener('storyboard-crop-updated',remember);
   function download() {
     remember();
     const shots = [...groups()].map(([groupId, drawings]) => ({

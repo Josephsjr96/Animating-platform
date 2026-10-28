@@ -33,8 +33,9 @@ const API = {
   },
   getWorkspace() { return this.send('/api/workspace'); },
   saveWorkspace(state) { return this.send('/api/workspace',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)}); },
-  scan(file,onProgress) {
+  scan(file,onProgress,geometry) {
     const form=new FormData();form.append('file',file);
+    if(geometry)form.append('geometry',JSON.stringify(geometry));
     const key=this.key();
     return new Promise((resolve,reject)=>{
       const xhr=new XMLHttpRequest();

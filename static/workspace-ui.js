@@ -32,8 +32,19 @@
   const reviewedPanels = new Map();
   const scanPage = API.scan.bind(API);
   API.scan = async function(file, onProgress) {
-    const result = await scanPage(file, onProgress);
+    let geometry;
+    if(window.StoryboardGeometry){
+      let source;
+      try{source=await createImageBitmap(file);}catch(error){console.warn('[storyboard] Border detection unavailable:',error.message);}
+      if(source)try{
+        const frames=StoryboardGeometry.detect(source);
+        if(frames.length>25)throw new Error('More than 25 bordered drawings found. Split this image into smaller pages before scanning.');
+        geometry={width:source.width,height:source.height,frames};
+      }finally{source.close();}
+    }
+    const result = await scanPage(file, onProgress, geometry);
     if (!Array.isArray(result.panels)) return result;
+    if(geometry)result.image_dimensions={width:geometry.width,height:geometry.height};
     const missing = result.panels.filter(p => !thumbnailSource(p.thumbnail_b64 || p.thumbnail));
     if (missing.length) {
       let image;
@@ -66,6 +77,12 @@
     }
     return result;
   };
+  // Manual crop edits must also reach the original panels used by cloud thumbnail sync.
+  document.addEventListener('storyboard-crop-updated',event=>{
+    const {importId,index,panel}=event.detail;
+    const original=scanResults.get(importId)?.[index];
+    if(original)Object.assign(original,{bbox:panel.bbox,bbox_source:panel.bbox_source,thumbnail_b64:panel.thumbnail_b64,_clientCrop:true});
+  });
   const reviewPage = API.review.bind(API);
   API.review = async function(id, payload) {
     const result = await reviewPage(id, payload);

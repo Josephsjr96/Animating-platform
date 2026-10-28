@@ -49,4 +49,22 @@ for(const first of [{choices:[{message:{content:'{"panels":['}}]},{choices:[{fin
  assert.equal(result.status,200);assert.equal((await result.json()).panels[0].notes,'原画');assert.deepEqual(budgets,[4096,8192]);
 }
 assert.equal(saved.length,3,'Retrying inference must persist each successful scan only once');
+const geometry={width:490,height:743,frames:[{x:49,y:28,w:261,h:138},{x:49,y:172,w:261,h:137}]};
+const bordered=new vision.StoryboardService({},{...env,AI:{async run(model,input){
+ const prompt=input.messages[1].content[0].text;
+ assert.ok(prompt.includes('490 by 743 pixels'));assert.ok(prompt.includes('frame_index'));
+ assert.equal(input.response_format.type,'json_schema');assert.deepEqual(input.response_format.json_schema.schema.properties.panels.items.properties.frame_index.enum,[0,1]);
+ // Deliberately wrong/model-reordered coordinates must never replace detected borders.
+ return {response:JSON.stringify({panels:[{...panel,frame_index:1,bbox:{x:0,y:0,w:490,h:500}},{...panel,frame_index:0,bbox:{x:1,y:1,w:1,h:1}}]})};
+}}});
+const borderedResponse=await bordered.analyze(image,geometry);assert.equal(borderedResponse.status,200);
+const borderedResult=await borderedResponse.json();assert.deepEqual(borderedResult.panels.map(p=>p.bbox),geometry.frames);assert.ok(borderedResult.panels.every(p=>p.bbox_source==='detected_border'));
+const invalidGeometry={...geometry,frames:[{x:480,y:0,w:30,h:50}]};
+assert.equal((await bordered.analyze(image,invalidGeometry)).status,400);
+const missingMetadata=new vision.StoryboardService({},{...env,AI:{async run(){return {response:'{"panels":[]}'}}}});
+const blanks=await (await missingMetadata.analyze(image,geometry)).json();assert.equal(blanks.panels.length,2);assert.equal(blanks.panels[0].number,'');assert.equal(blanks.panels[0].confidence,0);
+// Verify geometry is forwarded by the platform route, with provenance intact.
+const form=new FormData();form.append('file',new File([Buffer.from(image,'base64')],'page.png',{type:'image/png'}));form.append('geometry',JSON.stringify(geometry));
+const withGeometry=await platform.fetch(new Request('https://platform/api/import/scan',{method:'POST',headers:{'X-Workspace-Key':platformEnv.WORKSPACE_ACCESS_KEY},body:form}),{...platformEnv,STORYBOARD_VISION:bordered});
+assert.equal(withGeometry.status,200);const routed=await withGeometry.json();assert.deepEqual(routed.panels.map(p=>p.bbox),geometry.frames);assert.equal(routed.panels[0].bbox_source,'detected_border');
 console.log('PASS: private vision routing, public authentication, platform authentication, preserved notes/timing, import persistence, upstream errors, health without inference');
