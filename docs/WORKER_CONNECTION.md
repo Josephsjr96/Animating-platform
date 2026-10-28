@@ -5,9 +5,14 @@ That Worker now calls the dedicated `animating-storyboard-vision` through the
 `STORYBOARD_VISION` service binding and its named `StoryboardService` entrypoint.
 The vision model is Qwen (`@cf/qwen/qwen3.8-27b`), restored from the earlier
 platform scanner. Images are sent as `image_url` parts alongside the text prompt,
-with low reasoning effort and a 2,400-token completion limit. The interpreter reads
+with JSON-object response mode, low reasoning effort and a 4,096-token completion limit.
+Malformed or truncated responses are retried once with an 8,192-token limit before
+returning an actionable error. Truncated responses are never imported, even if their
+partial output is valid JSON. Diagnostics record attempt, finish reason and token count,
+not images or model text. The interpreter reads
 Qwen's `choices[0].message.content` output and retains support for `response`/`result`
-text envelopes. The storyboard prompt and public Bearer-token authentication are retained.
+text envelopes, including already parsed objects. Descriptions remain director-authored.
+Public Bearer-token authentication is retained.
 The private entrypoint invokes the same interpreter using its existing secret;
 no credentials are embedded in this repository or sent to the browser.
 
@@ -38,6 +43,8 @@ and is not used by this live route.
 authentication, Japanese notes, missing timing, persistence and upstream errors.
 It also checks Qwen image inputs, chat-completion output, legacy text output,
 fenced JSON, and review-required errors for invalid or empty model responses.
+Recovery tests run through the platform scan route and check that a retried scan
+creates only one saved import. These use mocked inference, not live accuracy checks.
 `GET https://animating-platform.josephsanjari1996.workers.dev/healthz` calls the bound
 vision health method without inference and reports the connected service/model.
 Public unauthenticated `POST /analyze` on vision must still return 401.

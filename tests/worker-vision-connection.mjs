@@ -11,7 +11,8 @@ const env={VISION_API_TOKEN:'test-vision-secret',AI:{async run(model,input){infe
  const content=input.messages.find(message=>message.role==='user').content;
  assert.ok(content.find(part=>part.type==='text').text.includes('ORIGINAL IMAGE PIXELS'));
  assert.equal(content.find(part=>part.type==='image_url').image_url.url,'data:image/png;base64,'+image);
- assert.equal(input.reasoning_effort,'low');assert.equal(input.max_completion_tokens,2400);
+ assert.equal(input.reasoning_effort,'low');assert.equal(input.max_completion_tokens,4096);
+ assert.deepEqual(input.response_format,{type:'json_object'});
  return {choices:[{message:{content:JSON.stringify({panels:[panel]})}}]};}}};
 const service=new vision.StoryboardService({},env);
 assert.equal((await vision.default.fetch(new Request('https://vision/analyze',{method:'POST',body:'{}'}),env)).status,401);
@@ -31,12 +32,21 @@ const body=await result.json();assert.equal(body.source,'animating-storyboard-vi
 const failed={...platformEnv,STORYBOARD_VISION:{async analyze(){return Response.json({error:'Manual review required'},{status:422})}}};
 assert.equal((await platform.fetch(request(),failed)).status,422);assert.equal(saved.length,1);
 const health=await (await platform.fetch(new Request('https://platform/healthz'),platformEnv)).json();assert.equal(health.vision.service,'animating-storyboard-vision');assert.equal(inference,1);
-for(const response of [{response:JSON.stringify({panels:[panel]})},{choices:[{message:{content:'```json\n'+JSON.stringify({panels:[panel]})+'\n```'}}]}]){
+for(const response of [{response:JSON.stringify({panels:[panel]})},{response:{panels:[panel]}},{panels:[panel]},{choices:[{message:{content:'```json\n'+JSON.stringify({panels:[panel]})+'\n```'}}]}]){
  const compatible=new vision.StoryboardService({},{...env,AI:{async run(){return response}}});
  const result=await compatible.analyze(image);assert.equal(result.status,200);assert.equal((await result.json()).panels[0].notes,'原画');
 }
-for(const [response,status] of [[{choices:[{message:{content:'invalid'}}]},502],[{choices:[{message:{content:'{"panels":[]}'}}]},422]]){
- const failedVision=new vision.StoryboardService({},{...env,AI:{async run(){return response}}});
+for(const [response,status,calls] of [[{choices:[{message:{content:'invalid'}}]},502,2],[{choices:[{finish_reason:'length',message:{content:JSON.stringify({panels:[panel]})}}]},502,2],[{choices:[{message:{content:'{"panels":[]}'}}]},422,1]]){
+ let attempts=0;
+ const failedVision=new vision.StoryboardService({},{...env,AI:{async run(){attempts++;return response}}});
  const result=await failedVision.analyze(image);assert.equal(result.status,status);assert.equal((await result.json()).review_required,true);
+ assert.equal(attempts,calls);
 }
+for(const first of [{choices:[{message:{content:'{"panels":['}}]},{choices:[{finish_reason:'length',message:{content:JSON.stringify({panels:[panel]})}}]}]){
+ const budgets=[];
+ const recovering=new vision.StoryboardService({},{...env,AI:{async run(model,input){budgets.push(input.max_completion_tokens);assert.deepEqual(input.response_format,{type:'json_object'});return budgets.length===1?first:{choices:[{finish_reason:'stop',message:{content:JSON.stringify({panels:[panel]})}}]};}}});
+ const result=await platform.fetch(request(),{...platformEnv,STORYBOARD_VISION:recovering});
+ assert.equal(result.status,200);assert.equal((await result.json()).panels[0].notes,'原画');assert.deepEqual(budgets,[4096,8192]);
+}
+assert.equal(saved.length,3,'Retrying inference must persist each successful scan only once');
 console.log('PASS: private vision routing, public authentication, platform authentication, preserved notes/timing, import persistence, upstream errors, health without inference');

@@ -13,10 +13,13 @@ Find drawing rectangles only, not columns of text. Return bounding boxes in ORIG
 Neighboring drawn panels can belong to the same cut; repeat a cut number ONLY when unambiguous.
 Transcribe Japanese notes/dialogue in Japanese if clearly legible. Never invent cut numbers, durations, dialogue, Japanese transcription or translations.
 Return null for unreadable or missing numbers/durations and empty strings for missing text.
+Leave description empty; the director writes the action. Keep notes concise and do not explain your answer.
 Output ONLY JSON: {"panels":[{"bbox":{"x":0,"y":0,"w":0,"h":0},"number":null,"description":"","notes":"","dialogue":"","duration":null,"confidence":0.3}]}.
 Confidence is conservative 0 to 1. Each panel must have its own rectangle. No markdown.`;
 function parseJson(value){
- const raw=typeof value==='string'?value:String(value?.choices?.[0]?.message?.content??value?.response??value?.result??'');
+ const content=value?.choices?.[0]?.message?.content??value?.response??value?.result??value;
+ if(content&&typeof content==='object'&&!Array.isArray(content))return Array.isArray(content.panels)?content:null;
+ const raw=typeof content==='string'?content:'';
  try{return JSON.parse(raw)}catch{}
  const start=raw.indexOf('{'),end=raw.lastIndexOf('}');
  if(start>=0&&end>start){try{return JSON.parse(raw.slice(start,end+1))}catch{}}
@@ -60,15 +63,27 @@ const visionWorker = {
   if(!png&&!jpeg&&!webp)return reply({error:'Only PNG, JPEG, and WebP are supported'},415);
   try{
    const dataUri='data:image/'+(png?'png':jpeg?'jpeg':'webp')+';base64,'+image;
-   const response=await env.AI.run(MODEL,{
-    messages:[
+   const messages=[
      {role:'system',content:'You produce cautious JSON about Japanese storyboards. Do not hallucinate text.'},
      {role:'user',content:[{type:'text',text:prompt},{type:'image_url',image_url:{url:dataUri}}]}
-    ],
-    reasoning_effort:'low',max_completion_tokens:2400
-   });
-   const parsed=parseJson(response);
-   if(!parsed)return reply({error:'Vision model did not return structured JSON. Retry or use manual review.',review_required:true},502);
+   ];
+   let parsed=null,finishReason=null;
+   for(const [attempt,budget] of [4096,8192].entries()){
+    const response=await env.AI.run(MODEL,{
+     messages,reasoning_effort:'low',max_completion_tokens:budget,
+     response_format:{type:'json_object'}
+    });
+    finishReason=response?.choices?.[0]?.finish_reason??null;
+    parsed=finishReason==='length'?null:parseJson(response);
+    if(parsed)break;
+    // Record metadata only: never log storyboard images, notes, or model text.
+    console.warn(JSON.stringify({event:'storyboard_json_failure',model:MODEL,attempt:attempt+1,
+     finish_reason:finishReason,completion_tokens:response?.usage?.completion_tokens??null}));
+   }
+   if(!parsed)return reply({error:finishReason==='length'
+    ?'Storyboard scan was cut short after retrying. Try a page with fewer panels.'
+    :'Vision returned unreadable scan results after retrying. Retry this page or use manual review.',
+    review_required:true},502);
    const panels=normalize(parsed);
    if(!panels.length)return reply({error:'No usable artwork boxes found; manual cropping required.',review_required:true},422);
    return reply({panels,panel_count:panels.length,source:'cloudflare-workers-ai',needs_review:true,model:MODEL});
