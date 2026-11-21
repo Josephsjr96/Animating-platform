@@ -46,7 +46,7 @@ Grouped-shot import, drawing galleries and draft-file restoration are available 
 
 Open **Timeline** to switch between **Gantt** and **Board**. Add a task with the inline title field and one submit; column add forms create unscheduled tasks in that status. Existing shot-list tasks remain linked to their original cells. New project tasks are stored separately in `productionTasks`, using the existing workspace save flow.
 
-- Assign people directly on cards or Gantt rows; add a person from the assignment selector.
+- Cards and Gantt rows display the department selector. Click **!** to see members with unfinished assignments in that department and change the task owner; the task editor also supports assignment.
 - Add named teams and select their colors with **Team colors**. Pipeline stages are also available as colored teams. Team definitions persist in `productionTeams`; stage colors persist on stage records.
 - Drag cards between status columns. Status selectors provide a keyboard alternative.
 - Set start/due dates in the task editor. Gantt bars show inclusive multi-day ranges; dragging a bar reschedules it while preserving its duration. Date fields provide a keyboard alternative.
@@ -66,3 +66,11 @@ PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs UI_TEST_URL=http://127.0.0.1:418
 **Add task** now opens a creation form when the inline title is empty; typed titles still submit directly. Empty Gantt days and empty team rows open that form directly. Cancel keeps the workspace unchanged. The direct Gantt link waits for the workspace load before exposing editable tasks, and task IDs have a fallback for browsers without `crypto.randomUUID`.
 
 Validation: 25 planner checks, a delayed-load/empty-workspace/browser-ID regression, and 52 existing UI checks passed with mocked APIs. Run the additional regression with `PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs node tests/planner-startup.mjs`.
+
+### Department planning and rendering correction
+
+Creating from a Gantt day preserves that day, department and visible date range. Occupied day cells and bars use the department color. The **!** control lists members with unfinished assignments across the department (including tasks outside the visible page); completed tasks do not count as active work.
+
+Gantt pages show 50 tasks and board columns initially show 25 cards with **Show more**. Search covers the full workspace, keeps input focus, and updates results after a short debounce. Planner edits preserve draft titles and scroll positions while updating the planner region.
+
+Validation: 31 planner checks, startup regression and a 1,000-task rendering regression passed with mocked APIs. The local Chromium fixture reduced synchronous render/layout from 2,663 ms and 66,283 DOM elements to 117 ms and 1,062 elements; these are local fixture measurements, not production timings. Run `tests/planner-performance.mjs` with `PLAYWRIGHT_MODULE` set to repeat the bounded-rendering, pagination, search and draft checks.
