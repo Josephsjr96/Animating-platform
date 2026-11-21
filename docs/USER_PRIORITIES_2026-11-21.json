@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-21",
+  "priorities": [
+    {
+      "number": 1,
+      "title": "Shot grid matching the production spreadsheet",
+      "reference": "https://docs.google.com/spreadsheets/d/15CQbtZNHY252jnezWiy8YCvfQ8qgtX5zRUOuXOxPi24/edit?gid=12345#gid=12345",
+      "status": "queued",
+      "scope": "Review the referenced shot-grid structure before implementation."
+    },
+    {
+      "number": 2,
+      "title": "Trello-style task board and interactive Gantt planner",
+      "status": "implemented",
+      "scope": "Quick task creation, direct assignment, colored teams, status tracking, drag-and-drop and dated Gantt bars.",
+      "verification": "25 planner checks, delayed-load/empty-workspace/ID fallback checks and 52 existing UI checks passed with mocked API traffic."
+    }
+  ]
+}
