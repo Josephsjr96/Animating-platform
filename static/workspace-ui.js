@@ -205,7 +205,6 @@
     file.onchange=()=>{
       const selected=file.files[0];if(!selected)return;
       if(!['image/png','image/jpeg','image/webp'].includes(selected.type)){toast('Choose a PNG, JPEG or WebP image.');return;}
-      if(selected.size>10*1024*1024){toast('Choose an image smaller than 10 MB.');return;}
       const reader=new FileReader();reader.onload=()=>{
         const image=new Image();image.onload=()=>{
           const scale=Math.min(1,960/Math.max(image.width,image.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
@@ -400,7 +399,7 @@
     }
     files.onchange=()=>{
       const picked=[...files.files];if(picked.length+ui.queue.length>20){toast('Queue up to 20 pages at a time.');files.value='';return;}
-      if(picked.some(f=>!['image/png','image/jpeg','image/webp'].includes(f.type)||f.size>15*1024*1024)){toast('Use PNG, JPEG or WebP images smaller than 15 MB.');files.value='';return;}
+      if(picked.some(f=>!['image/png','image/jpeg','image/webp'].includes(f.type))){toast('Use PNG, JPEG or WebP images.');files.value='';return;}
       ui.queue.push(...picked.map(file=>({file,status:'queued'})));draw();
     };
     run.onclick=async()=>{

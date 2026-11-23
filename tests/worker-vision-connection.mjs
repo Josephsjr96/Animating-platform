@@ -29,7 +29,7 @@ const result=await platform.fetch(request(),platformEnv);
 assert.equal(result.status,200);
 assert.equal(result.headers.get('access-control-allow-origin'),'https://josephsjr96.github.io');
 const body=await result.json();assert.equal(body.source,'animating-storyboard-vision');assert.equal(body.panels[0].notes,'原画');assert.equal(body.panels[0].duration,null);assert.equal(saved.length,1);assert.equal(inference,1);
-const failed={...platformEnv,STORYBOARD_VISION:{async analyze(){return Response.json({error:'Manual review required'},{status:422})}}};
+const failed={...platformEnv,STORYBOARD_VISION:{async analyzeStream(){return Response.json({error:'Manual review required'},{status:422})}}};
 assert.equal((await platform.fetch(request(),failed)).status,422);assert.equal(saved.length,1);
 const health=await (await platform.fetch(new Request('https://platform/healthz'),platformEnv)).json();assert.equal(health.vision.service,'animating-storyboard-vision');assert.equal(inference,1);
 for(const response of [{response:JSON.stringify({panels:[panel]})},{response:{panels:[panel]}},{panels:[panel]},{choices:[{message:{content:'```json\n'+JSON.stringify({panels:[panel]})+'\n```'}}]}]){

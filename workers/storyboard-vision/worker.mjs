@@ -5,7 +5,6 @@ import { WorkerEntrypoint } from "cloudflare:workers";
  * Requires VISION_API_TOKEN secret. Returns review-required guesses, never final shots.
  */
 const MODEL='@cf/qwen/qwen3.8-27b';
-const LIMIT=3*1024*1024;
 const reply=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const prompt=`Inspect this Japanese animation storyboard (絵コンテ / e-konte) as an image, not as English OCR.
 There may be printed headers above, a narrow left column with cut numbers, a central column of stacked framed DRAWINGS and handwritten Japanese production notes on the right.
@@ -77,13 +76,17 @@ const visionWorker = {
   const auth=request.headers.get('authorization')||'';
   if(auth!==`Bearer ${env.VISION_API_TOKEN}`)return reply({error:'Unauthorized'},401);
   if(!env.AI)return reply({error:'Workers AI binding missing'},503);
-  const length=Number(request.headers.get('content-length')||0);
-  if(length>LIMIT*1.4+1024)return reply({error:'Image request too large'},413);
   let body;
-  try{const text=await request.text();if(text.length>LIMIT*1.4+1024)return reply({error:'Request too large'},413);body=JSON.parse(text)}
+  try{body=await request.json()}
   catch{return reply({error:'Expected JSON body'},400)}
+  return analyzeImage(body,env);
+ }
+};
+
+async function analyzeImage(body,env){
+  if(!env.AI)return reply({error:'Workers AI binding missing'},503);
   const image=body?.image_b64;
-  if(typeof image!=='string'||!(/^[A-Za-z0-9+/]+={0,2}$/.test(image))||image.length>Math.ceil(LIMIT*4/3)+8||image.length<24)return reply({error:'Expected base64-encoded image (max 3 MB)'},400);
+  if(typeof image!=='string'||!(/^[A-Za-z0-9+/]+={0,2}$/.test(image))||image.length<24)return reply({error:'Expected base64-encoded image'},400);
   const magic=atob(image.slice(0,48));
   const png=magic.startsWith('\x89PNG\r\n\x1a\n');
   const jpeg=magic.startsWith('\xff\xd8\xff');
@@ -131,9 +134,7 @@ const visionWorker = {
    if(!panels.length)return reply({error:'No usable artwork boxes found; manual cropping required.',review_required:true},422);
    return reply({panels,panel_count:panels.length,source:'cloudflare-workers-ai',needs_review:true,model:MODEL});
   }catch(e){console.error('Vision inference failed',e?.message||String(e));return reply({error:'Vision inference unavailable; check Workers AI model/license and usage limits.'},502)}
- }
-};
-
+}
 
 export default visionWorker;
 
@@ -143,11 +144,22 @@ export class StoryboardService extends WorkerEntrypoint {
   async health() {
     return (await visionWorker.fetch(new Request('https://vision.internal/healthz'), this.env)).json();
   }
+  // Transfer original bytes as a stream, avoiding the serialized RPC size limit.
+  async analyzeStream(stream, geometry) {
+    const chunks=[];
+    let carry=new Uint8Array(0);
+    for await (const chunk of stream) {
+      const bytes=new Uint8Array(carry.length+chunk.length);
+      bytes.set(carry);bytes.set(chunk,carry.length);
+      const end=bytes.length-bytes.length%3;
+      // Base64 chunks end on a multiple of three bytes: no internal padding.
+      for(let i=0;i<end;i+=12288)chunks.push(btoa(String.fromCharCode(...bytes.subarray(i,Math.min(i+12288,end)))));
+      carry=bytes.slice(end);
+    }
+    if(carry.length)chunks.push(btoa(String.fromCharCode(...carry)));
+    return analyzeImage({image_b64:chunks.join(''),geometry},this.env);
+  }
   async analyze(image_b64, geometry) {
-    return visionWorker.fetch(new Request('https://vision.internal/analyze', {
-      method: 'POST',
-      headers: {'content-type':'application/json', authorization:`Bearer ${this.env.VISION_API_TOKEN}`},
-      body: JSON.stringify({image_b64,geometry})
-    }), this.env);
+    return analyzeImage({image_b64,geometry},this.env);
   }
 }

@@ -41,9 +41,7 @@ def api_scan():
     f = request.files["file"]
     if not f.filename:
         return jsonify({"error": "empty filename"}), 400
-    image_bytes = f.read(15 * 1024 * 1024 + 1)
-    if len(image_bytes) > 15 * 1024 * 1024:
-        return jsonify({"error": "image exceeds 15 MB"}), 413
+    image_bytes = f.read()
     if not image_bytes:
         return jsonify({"error": "empty file"}), 400
 

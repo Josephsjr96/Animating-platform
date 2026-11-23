@@ -14,15 +14,15 @@ if(!env.WORKSPACE_ACCESS_KEY||env.WORKSPACE_ACCESS_KEY.length<32)return out({err
 if(req.headers.get('X-Workspace-Key')!==env.WORKSPACE_ACCESS_KEY)return out({error:'Incorrect workspace access key'},401,origin);
 if(path==='/api/workspace'&&req.method==='GET')return out(await get(env.DB)||{empty:true},200,origin);
 if(path==='/api/workspace'&&req.method==='POST'){let ws;try{ws=await req.json()}catch{return out({error:'Invalid JSON'},400,origin)}if(!Array.isArray(ws?.shots)||JSON.stringify(ws).length>1800000)return out({error:'Invalid workspace'},400,origin);await save(env.DB,ws);return out({ok:true},200,origin)}
-if(path==='/api/import/scan'&&req.method==='POST'){let form;try{form=await req.formData()}catch{return out({error:'Expected multipart upload'},400,origin)}let file=form.get('file');if(!file||typeof file.arrayBuffer!=='function')return out({error:'No file'},400,origin);if(file.size>3*1024*1024||file.size<24)return out({error:'Image must be <=3 MB'},413,origin);if(!['image/png','image/jpeg','image/webp'].includes(file.type))return out({error:'Use PNG/JPEG/WebP'},415,origin);
-let bytes=new Uint8Array(await file.arrayBuffer());let png=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71,jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255,webp=String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';if(!png&&!jpg&&!webp)return out({error:'Invalid image signature'},415,origin);
-let b='';for(let i=0;i<bytes.length;i+=16384)b+=String.fromCharCode(...bytes.subarray(i,i+16384));let result;
+if(path==='/api/import/scan'&&req.method==='POST'){let form;try{form=await req.formData()}catch{return out({error:'Expected multipart upload'},400,origin)}let file=form.get('file');if(!file||typeof file.arrayBuffer!=='function')return out({error:'No file'},400,origin);if(file.size<24)return out({error:'Image is empty or incomplete'},400,origin);if(!['image/png','image/jpeg','image/webp'].includes(file.type))return out({error:'Use PNG/JPEG/WebP'},415,origin);
+let bytes=new Uint8Array(await file.slice(0,12).arrayBuffer());let png=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71,jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255,webp=String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';if(!png&&!jpg&&!webp)return out({error:'Invalid image signature'},415,origin);
+let result;
 if(!env.STORYBOARD_VISION)return out({error:'Storyboard vision service is not connected'},503,origin);
 try{
 let geometry;
 const geometryField=form.get('geometry');
 if(geometryField!=null){if(typeof geometryField!=='string'||geometryField.length>12000)return out({error:'Invalid image geometry'},400,origin);try{geometry=JSON.parse(geometryField);if(!geometry||typeof geometry!=='object')throw new Error()}catch{return out({error:'Invalid image geometry'},400,origin)}}
-const response=await env.STORYBOARD_VISION.analyze(btoa(b),geometry);
+const response=await env.STORYBOARD_VISION.analyzeStream(file.stream(),geometry);
 result=await response.json();
 if(!response.ok)return out({error:result.error||'Storyboard vision failed',review_required:true},response.status,origin);
 }catch(e){console.error('Storyboard vision service failed:',e?.message||String(e));return out({error:'Storyboard vision service unavailable'},502,origin)}
